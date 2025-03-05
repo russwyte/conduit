@@ -1,8 +1,37 @@
+import xerial.sbt.Sonatype.sonatypeCentralHost
+
 ThisBuild / scalaVersion := "3.6.3"
+
+usePgpKeyHex("2F64727A87F1BCF42FD307DD8582C4F16659A7D6")
 
 lazy val core = (projectMatrix in file("core"))
   .settings(
-    name := "core",
+    name                   := "conduit",
+    description            := "A ZIO-based library for building event-driven systems",
+    licenses               := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt")),
+    homepage               := Some(url("https://github.com/russwyte/conduit")),
+    organization           := "io.github.russwyte",
+    organizationName       := "russwyte",
+    organizationHomepage   := Some(url("https://github.com/russwyte")),
+    publishMavenStyle      := true,
+    pomIncludeRepository   := { _ => false },
+    sonatypeCredentialHost := sonatypeCentralHost,
+    publishTo              := sonatypePublishToBundle.value,
+    versionScheme          := Some("early-semver"),
+    scmInfo := Some(
+      ScmInfo(
+        url("https://github.com/russwyte/conduit"),
+        "scm:git@github.com:russwyte/conduit.git",
+      )
+    ),
+    developers := List(
+      Developer(
+        id = "russwyte",
+        name = "Russ White",
+        email = "356303+russwyte@users.noreply.github.com",
+        url = url("https://github.com/russwyte"),
+      )
+    ),
     scalacOptions ++= Seq(
       "-deprecation",
       "-Wunused:all",
