@@ -28,12 +28,10 @@ ThisBuild / developers := List(
   )
 )
 val zioVersion = "2.1.16"
-// spellchecker: disable
 val timeWrappers = Seq(
   "io.github.cquiroz" %% "scala-java-time"      % "2.6.0",
   "io.github.cquiroz" %% "scala-java-time-tzdb" % "2.6.0",
 )
-// spellchecker: enable
 val scalaVersions = Seq(scala3Version)
 
 lazy val root = (project in file("."))
