@@ -22,4 +22,4 @@ jobs:
         cache: 'sbt'
     - uses: sbt/setup-sbt@v1
     - name: Run tests
-      run: sbt test
+      run: SBT_OPTS=-Xmx2G sbt test
