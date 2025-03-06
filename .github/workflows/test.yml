@@ -22,4 +22,4 @@ jobs:
         cache: 'sbt'
     - uses: sbt/setup-sbt@v1
     - name: Run tests
-      run: ./ci_auth.sh && sbt +test
+      run: sbt test
