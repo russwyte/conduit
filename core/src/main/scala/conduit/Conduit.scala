@@ -11,6 +11,8 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
   object unsafe:
     def apply(action: AppAction*): Unit =
       self.get(self.apply(action*))
+    def zoom[U](lens: Lens[M, U]): U =
+      self.get(self.zoom(lens))
     inline def zoomTo[U](inline path: M => U): U =
       self.get(self.zoomTo(path))
     inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, S] =

@@ -44,6 +44,7 @@ object MyApp extends ZIOAppDefault:
     for
       c <- Conduit(Model(0))(Model.handler)
       _ = c.unsafe(model.Increment)
+      x = conduit.Listener.unit
       _ <- c(
         model.Increment,
         model.Increment,

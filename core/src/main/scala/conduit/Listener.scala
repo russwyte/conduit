@@ -1,7 +1,7 @@
 package conduit
 import zio.*
 
-private[conduit] case class Listener[M, S] private[conduit] (
+final case class Listener[M, S] private[conduit] (
     cursor: Lens[M, S],
     listener: S => Unit,
 ):
@@ -15,3 +15,6 @@ private[conduit] case class Listener[M, S] private[conduit] (
         lastValue = Some(newValue)
     }
 end Listener
+object Listener:
+  def unit[M, S](cursor: Lens[M, S]): Listener[M, S] =
+    Listener(cursor, _ => ())
