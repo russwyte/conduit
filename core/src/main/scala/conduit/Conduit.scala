@@ -6,6 +6,29 @@ import zio.stream.ZStream
 abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
   self =>
 
+  val runtime = Runtime.default
+
+  object unsafe:
+    def apply(action: AppAction*): Unit =
+      self.get(self.apply(action*))
+    inline def zoomTo[U](inline path: M => U): U =
+      self.get(self.zoomTo(path))
+    inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, S] =
+      self.get(self.subscribe(path)(f))
+    def subscribe[S](lens: Lens[M, S])(f: S => Unit): Listener[M, S] =
+      self.get(self.subscribe(lens)(f))
+    def unsubscribe[S](listener: Listener[M, S]): Unit =
+      self.get(self.unsubscribe(listener))
+    def run(terminate: Boolean = true): Unit =
+      self.get(self.run(terminate).orDie)
+    def currentModel: M =
+      self.get(self.currentModel)
+  end unsafe
+
+  def get[A](zio: UIO[A]): A = Unsafe.unsafe: u =>
+    given Unsafe = u
+    runtime.unsafe.run(zio).getOrThrow()
+
   def initialModel: M
 
   protected def handler: ActionHandler[M, ?]
@@ -50,7 +73,8 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
         yield action
 
   def zoom[U](lens: Lens[M, U]): ZIO[Any, Nothing, U] =
-    stateRef.get.map(state => lens.get(state.model))
+    for m <- currentModel
+    yield lens.get(m)
 
   inline def zoomTo[U](inline path: M => U): ZIO[Any, Nothing, U] =
     zoom(lensFor(path))
@@ -60,7 +84,7 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
     * @param action
     * @return
     */
-  def apply(action: AppAction*): ZIO[Any, Throwable, Unit] =
+  def apply(action: AppAction*): UIO[Unit] =
     for
       state <- stateRef.get
       _ <- ZIO.foreachDiscard(action):
@@ -74,11 +98,20 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
         current.copy(listeners = current.listeners + l)
       .as(l)
 
-  def unsubscribe[S](listener: Listener[M, S]): ZIO[Any, Nothing, Unit] =
+  def subscribe[S](lens: Lens[M, S])(listener: S => Unit): UIO[Listener[M, S]] =
+    val l = Listener[M, S](lens, listener)
+    stateRef
+      .update: current =>
+        current.copy(listeners = current.listeners + l)
+      .as(l)
+
+  def unsubscribe[S](listener: Listener[M, S]): UIO[Unit] =
     stateRef
       .update: current =>
         current.copy(listeners = current.listeners - listener)
-      .unit
+
+  def currentModel: UIO[M] = stateRef.get.map(_.model)
+
 end Conduit
 
 object Conduit:

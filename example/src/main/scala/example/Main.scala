@@ -43,6 +43,7 @@ object MyApp extends ZIOAppDefault:
   val run =
     for
       c <- Conduit(Model(0))(Model.handler)
+      _ = c.unsafe(model.Increment)
       _ <- c(
         model.Increment,
         model.Increment,
