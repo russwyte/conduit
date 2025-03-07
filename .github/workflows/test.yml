@@ -17,9 +17,9 @@ jobs:
     - name: Set up a JDK for SBT
       uses: actions/setup-java@v4
       with:
-        java-version: '21'
+        java-version: '23'
         distribution: 'temurin'
         cache: 'sbt'
     - uses: sbt/setup-sbt@v1
     - name: Run tests
-      run: SBT_OPTS=-Xmx2G sbt test
+      run: sbt test
