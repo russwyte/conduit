@@ -16,7 +16,7 @@ def noChange[M](next: AppAction)(using lens: Lens[M, M]): ActionFunction[M] = m 
 def effectOnly[M](effect: M => Task[Unit])(using lens: Lens[M, M]): ActionFunction[M] = m =>
   effect(m).map(_ => ActionResult(m))
 
-def handle[M]: HandlerFunction[M, M] = handle(Lens.identity)
+def handle[M <: Product: Optics as model]: HandlerFunction[M, M] = handle(model)
 
 def handle[M, V](l: Lens[M, V])(f: SelectorFunction[M, V]): ActionHandler[M, V] =
   new ActionHandler[M, V]:

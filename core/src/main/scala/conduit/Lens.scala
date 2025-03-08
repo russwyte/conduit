@@ -16,13 +16,6 @@ trait Lens[M, V]:
   inline def apply[W](inline path: V => W): Lens[M, W] = new Compose[W](lensFor[V, W](path))
 end Lens
 
-object Lens:
-  private[conduit] def identity[M]: Lens[M, M] =
-    new Lens[M, M]:
-      def get(m: M): M       = m
-      def set(m: M, v: M): M = v
-end Lens
-
 private[conduit] inline def lensFor[M, V](inline path: M => V): Lens[M, V] = ${ lensForImpl('path) }
 
 private def lensForImpl[M: Type, V: Type](path: Expr[M => V])(using Quotes): Expr[Lens[M, V]] =

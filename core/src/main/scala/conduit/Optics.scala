@@ -1,8 +1,8 @@
 package conduit
 
-trait Optics[Model <: Product]:
-  inline def lens[Focus](inline path: Model => Focus): Lens[Model, Focus]  = lensFor(path)
-  inline def apply[Focus](inline path: Model => Focus): Lens[Model, Focus] = lensFor(path)
+trait Optics[Model <: Product] extends Lens[Model, Model]:
+  override def get(m: Model): Model           = m
+  override def set(m: Model, v: Model): Model = v
 
 object Optics:
   import scala.quoted.*
