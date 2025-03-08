@@ -5,31 +5,26 @@ import zio.stream.ZStream
 
 abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
   self =>
-
-  val runtime = Runtime.default
+  import Conduit.get
 
   object unsafe:
     def apply(action: AppAction*): Unit =
-      self.get(self.apply(action*))
+      get(self.apply(action*))
     def zoom[U](lens: Lens[M, U]): U =
-      self.get(self.zoom(lens))
+      get(self.zoom(lens))
     inline def zoomTo[U](inline path: M => U): U =
-      self.get(self.zoomTo(path))
+      get(self.zoomTo(path))
     inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, S] =
-      self.get(self.subscribe(path)(f))
+      get(self.subscribe(path)(f))
     def subscribe[S](lens: Lens[M, S])(f: S => Unit): Listener[M, S] =
-      self.get(self.subscribe(lens)(f))
+      get(self.subscribe(lens)(f))
     def unsubscribe[S](listener: Listener[M, S]): Unit =
-      self.get(self.unsubscribe(listener))
+      get(self.unsubscribe(listener))
     def run(terminate: Boolean = true): Unit =
-      self.get(self.run(terminate).orDie)
+      get(self.run(terminate).orDie)
     def currentModel: M =
-      self.get(self.currentModel)
+      get(self.currentModel)
   end unsafe
-
-  def get[A](zio: UIO[A]): A = Unsafe.unsafe: u =>
-    given Unsafe = u
-    runtime.unsafe.run(zio).getOrThrow()
 
   def initialModel: M
 
@@ -117,6 +112,13 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
 end Conduit
 
 object Conduit:
+  def get[A](zio: UIO[A]): A = Unsafe.unsafe: u =>
+    given Unsafe = u
+    Runtime.default.unsafe.run(zio).getOrThrow()
+  def make[M](
+      init: M
+  )(h: => ActionHandler[M, ?]): Conduit[M] =
+    get(apply(init)(h))
 
   def apply[M](
       init: M

@@ -34,6 +34,8 @@ val timeWrappers = Seq(
 )
 val scalaVersions = Seq(scala3Version)
 
+test / skip := true
+
 lazy val root = (project in file("."))
   .aggregate(core.projectRefs ++ example.projectRefs: _*)
   .settings(

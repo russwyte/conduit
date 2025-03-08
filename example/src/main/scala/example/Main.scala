@@ -16,6 +16,7 @@ object Pet:
 end Pet
 
 case class Model(counter: Int, pet: Pet = Pet("Fido", 2)) derives Optics
+
 object Model:
   val model = Optics[Model]
 
