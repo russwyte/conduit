@@ -7,6 +7,8 @@ abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, 
   self =>
   import Conduit.get
 
+  val fastEq = FastEq.get[M]
+
   object unsafe:
     def apply(action: AppAction*): Unit =
       get(self.apply(action*))
@@ -63,11 +65,22 @@ abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, 
         for
           currentState <- stateRef.get
           currentModel = currentState.model
-          result    <- handler.process(action, currentModel)
-          _         <- stateRef.update(_.copy(model = result.newModel))
+          result <- handler.process(action, currentModel)
+
+          // Check if the model actually changed before updating state and notifying listeners
+          modelChanged =
+            !fastEq.eqv(currentModel, result.newModel)
+
+          // Always update state (preserves action processing semantics)
+          _ <- stateRef.update(_.copy(model = result.newModel))
+
+          // Only notify listeners if model actually changed (performance optimization)
           nextState <- stateRef.get
-          _         <- ZIO.foreachDiscard(nextState.listeners)(_.notify(nextState.model))
-          _         <- ZIO.foreachDiscard(result.next)(dispatch)
+          _ <-
+            if modelChanged then ZIO.foreachDiscard(nextState.listeners)(_.notify(nextState.model))
+            else ZIO.unit
+
+          _ <- ZIO.foreachDiscard(result.next)(dispatch)
         yield action
 
   def zoom[U](lens: Lens[M, U]): IO[Nothing, U] =
