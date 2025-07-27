@@ -14,11 +14,11 @@ abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, 
       get(self.zoom(lens))
     inline def zoomTo[U](inline path: M => U): U =
       get(self.zoomTo(path))
-    inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, S, E] =
-      get(self.subscribe(path)(s => ZIO.succeed(f(s))))
-    def subscribe[S](lens: Lens[M, S])(f: S => Unit): Listener[M, S, E] =
-      get(self.subscribe(lens)(s => ZIO.succeed(f(s))))
-    def unsubscribe[S](listener: Listener[M, S, E]): Unit =
+    inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, E, S] =
+      get(self.subscribe(lensFor(path))((s: S) => ZIO.succeed(f(s))))
+    def subscribe[S](lens: Lens[M, S])(f: S => Unit): Listener[M, E, S] =
+      get(self.subscribe(lens)((s: S) => ZIO.succeed(f(s))))
+    def unsubscribe[S](listener: Listener[M, E, S]): Unit =
       get(self.unsubscribe(listener))
     def run(terminate: Boolean = true): Unit =
       try get(self.run(terminate).catchAll(e => ZIO.die(RuntimeException(s"Conduit error: $e"))))
@@ -89,21 +89,21 @@ abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, 
         state.actionQueue.offer
     yield ()
 
-  inline def subscribe[S](inline path: M => S)(inline listener: S => IO[E, Unit]): UIO[Listener[M, S, E]] =
-    val l = Listener[M, S, E](lensFor(path), listener)
-    stateRef
-      .update: current =>
+  inline def subscribe[S](inline path: M => S)(inline listener: S => IO[E, Unit]): IO[Nothing, Listener[M, E, S]] =
+    for
+      l <- Listener(lensFor(path), listener)
+      _ <- stateRef.update: current =>
         current.copy(listeners = current.listeners + l)
-      .as(l)
+    yield l
 
-  def subscribe[S](lens: Lens[M, S])(listener: S => IO[E, Unit]): UIO[Listener[M, S, E]] =
-    val l = Listener[M, S, E](lens, listener)
-    stateRef
-      .update: current =>
+  def subscribe[S](lens: Lens[M, S])(listener: S => IO[E, Unit]): IO[Nothing, Listener[M, E, S]] =
+    for
+      l <- Listener(lens, listener)
+      _ <- stateRef.update: current =>
         current.copy(listeners = current.listeners + l)
-      .as(l)
+    yield l
 
-  def unsubscribe[S](listener: Listener[M, S, E]): UIO[Unit] =
+  def unsubscribe[S](listener: Listener[M, E, S]): UIO[Unit] =
     stateRef
       .update: current =>
         current.copy(listeners = current.listeners - listener)

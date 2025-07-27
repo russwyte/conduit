@@ -1,20 +1,27 @@
 package conduit
 import zio.*
 
-final case class Listener[M, S, E] private[conduit] (
+final case class Listener[M, E, S] private[conduit] (
     cursor: Lens[M, S],
     listener: S => IO[E, Unit],
+    private val lastValueRef: Ref[Option[S]],
 ):
-  private var lastValue: Option[S] = Option.empty[S]
-
   private[conduit] def notify(newModel: M): IO[E, Unit] =
     val newValue = cursor.get(newModel)
-    val res = lastValue match
-      case Some(a) if a == newValue => ZIO.unit
-      case _                        => listener(newValue)
-    lastValue = Some(newValue)
-    res
+    for
+      lastValue <- lastValueRef.get
+      res <- lastValue match
+        case Some(a) if a == newValue => ZIO.unit
+        case _                        => listener(newValue)
+      _ <- lastValueRef.set(Some(newValue))
+    yield res
+  end notify
 end Listener
+
 object Listener:
-  def unit[M, S](cursor: Lens[M, S]): Listener[M, S, Nothing] =
-    Listener(cursor, _ => ZIO.succeed(()))
+  def apply[M, E, S](cursor: Lens[M, S], listener: S => IO[E, Unit]): UIO[Listener[M, E, S]] =
+    for lastValueRef <- Ref.make(Option.empty[S])
+    yield new Listener(cursor, listener, lastValueRef)
+
+  def unit[M, S](cursor: Lens[M, S]): UIO[Listener[M, Nothing, S]] =
+    apply(cursor, _ => ZIO.succeed(()))

@@ -1,7 +1,8 @@
 import xerial.sbt.Sonatype.sonatypeCentralHost
 usePgpKeyHex("2F64727A87F1BCF42FD307DD8582C4F16659A7D6")
 val scala3Version = "3.7.1"
-scalaVersion := scala3Version
+ThisBuild / scalaVersion                            := scala3Version
+ThisBuild / dependencyOverrides += "org.scala-lang" %% "scala3-library" % scalaVersion.value
 
 ThisBuild / publishMavenStyle.withRank(KeyRanks.Invisible)    := true
 ThisBuild / pomIncludeRepository.withRank(KeyRanks.Invisible) := { _ => false }
