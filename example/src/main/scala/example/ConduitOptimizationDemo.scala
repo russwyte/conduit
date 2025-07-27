@@ -21,17 +21,18 @@ object ConduitOptimizationDemo extends ZIOAppDefault:
 
       listenerCallCount <- Ref.make(0)
 
-      conduit <- Conduit(CounterModel(0))(
-        handle[CounterModel, IOException]:
-          case CounterAction.Increment =>
-            m => ZIO.succeed(ActionResult(m.copy(count = m.count + 1)))
-          case CounterAction.Decrement =>
-            m => ZIO.succeed(ActionResult(m.copy(count = m.count - 1)))
-          case CounterAction.SetValue(value) =>
-            m => ZIO.succeed(ActionResult(m.copy(count = value)))
-          case CounterAction.NoOp =>
-            m => ZIO.succeed(ActionResult(m)) // Returns same model unchanged
-      )
+      // Create ActionHandler using helper functions instead of manual pattern matching
+      counterModel = Optics[CounterModel]
+      counterHandler = handle[CounterModel, Int, IOException](counterModel(_.count)):
+        case CounterAction.Increment       => update(_ + 1)
+        case CounterAction.Decrement       => update(_ - 1)
+        case CounterAction.SetValue(value) => updated(value)
+        case CounterAction.NoOp            => noChange
+
+      conduit <- Conduit(CounterModel(0))(counterHandler)
+
+      // Start the conduit running in the background
+      fiber <- conduit.runUntilDone.fork
 
       // Subscribe to count changes
       _ <- conduit.subscribe(_.count) { count =>
@@ -81,5 +82,9 @@ object ConduitOptimizationDemo extends ZIOAppDefault:
       _ <- Console.printLine(s"Listeners triggered: $calls6")
       _ <- Console.printLine("Listeners were only called when the model actually changed!")
       _ <- Console.printLine("This optimization prevents unnecessary lens evaluations and listener notifications.")
+
+      // Stop the background conduit processing
+      _ <- conduit(Done)
+      _ <- fiber.join
     yield ()
 end ConduitOptimizationDemo

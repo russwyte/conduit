@@ -69,7 +69,7 @@ abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, 
 
           // Check if the model actually changed before updating state and notifying listeners
           modelChanged =
-            !fastEq.eqv(currentModel, result.newModel)
+            result.dirty && !fastEq.eqv(currentModel, result.newModel)
 
           // Always update state (preserves action processing semantics)
           _ <- stateRef.update(_.copy(model = result.newModel))

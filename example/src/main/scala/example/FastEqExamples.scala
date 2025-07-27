@@ -91,10 +91,13 @@ object FastEqExamples extends ZIOAppDefault:
       _ <- Console.printLine("\n1. Large Collection Model (standard equality)")
       largeItems = (1 to 10000).map(i => s"item$i").toList
       largeModel = LargeCollectionModel("test", largeItems, Map.empty)
-      conduit1 <- Conduit(largeModel)(handle[LargeCollectionModel, IOException]:
-        case ModelAction.UpdateLargeCollection(items) =>
-          m => ZIO.succeed(ActionResult(m.copy(items = items)))
-      )
+
+      // Use ActionHandler functions pattern
+      largeModelOptics = Optics[LargeCollectionModel]
+      largeHandler = handle[LargeCollectionModel, List[String], IOException](largeModelOptics(_.items)):
+        case ModelAction.UpdateLargeCollection(items) => updated(items)
+
+      conduit1 <- Conduit(largeModel)(largeHandler)
 
       // Subscribe to changes - this will trigger equality checks
       _ <- conduit1.subscribe(_.items) { items =>
@@ -111,10 +114,13 @@ object FastEqExamples extends ZIOAppDefault:
       // Demo 2: Versioned model with fast equality
       _ <- Console.printLine("\n2. Versioned Model (version-based equality)")
       versionedModel = VersionedModel("test", "data", 1L, (1 to 10000).toList)
-      conduit2 <- Conduit(versionedModel)(handle[VersionedModel, IOException]:
-        case ModelAction.IncrementVersion =>
-          m => ZIO.succeed(ActionResult(m.copy(version = m.version + 1)))
-      )
+
+      // Use ActionHandler functions pattern
+      versionedModelOptics = Optics[VersionedModel]
+      versionedHandler = handle[VersionedModel, Long, IOException](versionedModelOptics(_.version)):
+        case ModelAction.IncrementVersion => update(_ + 1)
+
+      conduit2 <- Conduit(versionedModel)(versionedHandler)
 
       _ <- conduit2.subscribe(_.version) { version =>
         Console.printLine(s"Version changed: $version")
@@ -129,10 +135,13 @@ object FastEqExamples extends ZIOAppDefault:
       // Demo 3: Hash-based equality
       _ <- Console.printLine("\n3. Hashed Model (hash-based equality)")
       hashedModel = HashedModel("test", "content", Vector.fill(5000)("data"))
-      conduit3 <- Conduit(hashedModel)(handle[HashedModel, IOException]:
-        case ModelAction.UpdateHashed(content) =>
-          m => ZIO.succeed(ActionResult(m.copy(content = content)))
-      )
+
+      // Use ActionHandler functions pattern
+      hashedModelOptics = Optics[HashedModel]
+      hashedHandler = handle[HashedModel, String, IOException](hashedModelOptics(_.content)):
+        case ModelAction.UpdateHashed(content) => updated(content)
+
+      conduit3 <- Conduit(hashedModel)(hashedHandler)
 
       _ <- conduit3.subscribe(_.content) { content =>
         Console.printLine(s"Content changed: ${content.take(20)}...")
@@ -169,7 +178,7 @@ object FastEqExamples extends ZIOAppDefault:
       conduit <- Conduit(CustomModel("test", now))(
         handle[CustomModel, IOException]:
           case ModelAction.UpdateCustom(data, timestamp) =>
-            m => ZIO.succeed(ActionResult(CustomModel(data, timestamp)))
+            updated(CustomModel(data = data, timestamp = timestamp))
       )
 
       _ <- conduit.subscribe(_.data) { data =>

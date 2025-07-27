@@ -21,16 +21,16 @@ object OptionalFastEqDemo extends ZIOAppDefault:
       _ <- Console.printLine("=== FastEq Optional Demo ===")
       _ <- Console.printLine("This demo shows that no FastEq instances are required!")
 
-      // Create conduit without defining any FastEq instances
-      conduit <- Conduit(SimpleModel("test", 0))(
-        handle[SimpleModel, IOException]:
-          case SimpleAction.UpdateName(name) =>
-            m => ZIO.succeed(ActionResult(m.copy(name = name)))
-          case SimpleAction.Increment =>
-            m => ZIO.succeed(ActionResult(m.copy(count = m.count + 1)))
-          case SimpleAction.Decrement =>
-            m => ZIO.succeed(ActionResult(m.copy(count = m.count - 1)))
-      )
+      // Create conduit using ActionHandler functions pattern
+      simpleModelOptics = Optics[SimpleModel]
+      nameHandler = handle[SimpleModel, String, IOException](simpleModelOptics(_.name)):
+        case SimpleAction.UpdateName(name) => updated(name)
+
+      countHandler = handle[SimpleModel, Int, IOException](simpleModelOptics(_.count)):
+        case SimpleAction.Increment => update(_ + 1)
+        case SimpleAction.Decrement => update(_ - 1)
+
+      conduit <- Conduit(SimpleModel("test", 0))(nameHandler >> countHandler)
 
       // Subscribe to changes - FastEq will automatically fall back to standard equality
       _ <- conduit.subscribe(_.name) { name =>

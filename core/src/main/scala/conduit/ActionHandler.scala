@@ -11,9 +11,9 @@ def update[M, V, E](using lens: Lens[M, V])(f: V => V): ActionFunction[M, E] = m
   ZIO.succeed(ActionResult(lens.set(m, f(lens.get(m)))))
 def updated[M, V, E](newValue: V)(using lens: Lens[M, V]): ActionFunction[M, E] = m =>
   ZIO.succeed(ActionResult(lens.set(m, newValue)))
-def noChange[M, E]: ActionFunction[M, E]                             = m => ZIO.succeed(ActionResult.terminal(m))
-def noChange[M, E](next: AppAction): ActionFunction[M, E]            = m => ZIO.succeed(ActionResult(m, next))
-def effectOnly[M, E](effect: M => IO[E, Unit]): ActionFunction[M, E] = m => effect(m).map(_ => ActionResult(m))
+def noChange[M, E]: ActionFunction[M, E]                             = m => ZIO.succeed(ActionResult.clean(m))
+def noChange[M, E](next: AppAction): ActionFunction[M, E]            = m => ZIO.succeed(ActionResult.clean(m, next))
+def effectOnly[M, E](effect: M => IO[E, Unit]): ActionFunction[M, E] = m => effect(m).map(_ => ActionResult.clean(m))
 
 def handle[M <: Product: Optics as model, E]: HandlerFunction[M, M, E] = handle(model)
 

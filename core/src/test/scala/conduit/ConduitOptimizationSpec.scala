@@ -26,17 +26,16 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("Conduit Dispatch Optimization")(
       test("should not notify listeners when model doesn't change") {
+        // Use ActionHandler functions pattern
+        val testModel = Optics[TestModel]
+        val testHandler = handle[TestModel, Int, Nothing](testModel(_.value)):
+          case TestAction.Increment   => update(_ + 1)
+          case TestAction.NoOp        => noChange
+          case TestAction.SetValue(v) => updated(v)
+
         for
           listenerCallCount <- Ref.make(0)
-          conduit <- Conduit(TestModel(0))(
-            handle[TestModel, Nothing]:
-              case TestAction.Increment =>
-                m => ZIO.succeed(ActionResult(m.copy(value = m.value + 1)))
-              case TestAction.NoOp =>
-                m => ZIO.succeed(ActionResult(m)) // Same model - no change
-              case TestAction.SetValue(v) =>
-                m => ZIO.succeed(ActionResult(m.copy(value = v)))
-          )
+          conduit           <- Conduit(TestModel(0))(testHandler)
 
           // Subscribe to changes
           _ <- conduit.subscribe(_.value) { x =>
@@ -72,12 +71,13 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
           assertTrue(calls5 == 2)        // Multiple NoOps did NOT trigger
       },
       test("should always update state even when model doesn't change") {
+        // Use ActionHandler functions pattern
+        val testModel = Optics[TestModel]
+        val testHandler = handle[TestModel, Int, Nothing](testModel(_.value)):
+          case TestAction.NoOp => noChange
+
         for
-          conduit <- Conduit(TestModel(42))(
-            handle[TestModel, Nothing]:
-              case TestAction.NoOp =>
-                m => ZIO.succeed(ActionResult(m)) // Same model
-          )
+          conduit <- Conduit(TestModel(42))(testHandler)
 
           // Initial state
           initial <- conduit.currentModel
@@ -90,6 +90,7 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
         yield assertTrue(initial == TestModel(42)) &&
           assertTrue(finalState == TestModel(42)) &&
           assertTrue(initial == finalState)
+        end for
       },
       test("FastEq typeclass should work correctly") {
         // Test our custom FastEq instance directly

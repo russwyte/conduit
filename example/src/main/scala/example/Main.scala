@@ -33,29 +33,35 @@ object User:
 
   val model = Optics[User]
 
-  // Handler with ValidationError type
+  // Handler with ValidationError type using ActionHandler functions
   def validatingHandler: ActionHandler[User, ?, ValidationError] =
-    handle[User, User, ValidationError](model):
-      case UpdateName(name) if name.trim.nonEmpty =>
-        m => ZIO.succeed(ActionResult(m.copy(name = name.trim)))
-      case UpdateName(name) =>
-        m => ZIO.fail(InvalidName(name))
-      case UpdateAge(age) if age >= 0 && age <= 150 =>
-        m => ZIO.succeed(ActionResult(m.copy(age = age)))
-      case UpdateAge(age) =>
-        m => ZIO.fail(InvalidAge(age))
-      case UpdateEmail(email) =>
-        m => ZIO.succeed(ActionResult(m.copy(email = email)))
+    val nameHandler = handle[User, String, ValidationError](model(_.name)):
+      case UpdateName(name) if name.trim.nonEmpty => updated(name.trim)
+      case UpdateName(name)                       => m => ZIO.fail(InvalidName(name))
 
-  // Handler with Throwable (for effects that can throw)
+    val ageHandler = handle[User, Int, ValidationError](model(_.age)):
+      case UpdateAge(age) if age >= 0 && age <= 150 => updated(age)
+      case UpdateAge(age)                           => m => ZIO.fail(InvalidAge(age))
+
+    val emailHandler = handle[User, String, ValidationError](model(_.email)):
+      case UpdateEmail(email) => updated(email)
+
+    nameHandler >> ageHandler >> emailHandler
+  end validatingHandler
+
+  // Handler with Throwable using ActionHandler functions
   def simpleHandler: ActionHandler[User, ?, Throwable] =
-    handle[User, User, Throwable](model):
-      case UpdateName(name) =>
-        m => ZIO.succeed(ActionResult(m.copy(name = name)))
-      case UpdateAge(age) =>
-        m => ZIO.succeed(ActionResult(m.copy(age = age)))
-      case UpdateEmail(email) =>
-        m => ZIO.succeed(ActionResult(m.copy(email = email)))
+    val nameHandler = handle[User, String, Throwable](model(_.name)):
+      case UpdateName(name) => updated(name)
+
+    val ageHandler = handle[User, Int, Throwable](model(_.age)):
+      case UpdateAge(age) => updated(age)
+
+    val emailHandler = handle[User, String, Throwable](model(_.email)):
+      case UpdateEmail(email) => updated(email)
+
+    nameHandler >> ageHandler >> emailHandler
+  end simpleHandler
 end User
 
 object Model:
@@ -72,7 +78,9 @@ object Model:
 
   def logger = handle[Model, IOException]:
     // log the current model state for every action
-    case _ => m => Console.printLine(s"Foo: $m").as(ActionResult.terminal(m))
+    case _ =>
+      effectOnly: m =>
+        Console.printLine(s"Foo: $m")
 
   def handler =
     (counterHandler[IOException] >> Pet.handler[Model, IOException](model(_.pet))) ++
