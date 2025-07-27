@@ -8,11 +8,12 @@ final case class Listener[M, E, S] private[conduit] (
 ):
   private[conduit] def notify(newModel: M): IO[E, Unit] =
     val newValue = cursor.get(newModel)
+    val fastEq   = FastEq.get[S] // Get FastEq with automatic fallback
     for
       lastValue <- lastValueRef.get
       res <- lastValue match
-        case Some(a) if a == newValue => ZIO.unit
-        case _                        => listener(newValue)
+        case Some(a) if fastEq.eqv(a, newValue) => ZIO.unit
+        case _                                  => listener(newValue)
       _ <- lastValueRef.set(Some(newValue))
     yield res
   end notify
