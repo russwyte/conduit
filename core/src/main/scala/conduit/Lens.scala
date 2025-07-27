@@ -127,7 +127,7 @@ private def lensForImpl[M: Type, V: Type](path: Expr[M => V])(using Quotes): Exp
   end findLambda
 
   findLambda(path.asTerm) match
-    case Lambda(valDefs, fieldChain) =>
+    case Lambda(_, fieldChain) =>
       fieldChain match
         case _: Select => make(fieldChain)
         case e =>

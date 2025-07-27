@@ -1,13 +1,14 @@
 package example
 import conduit.*
 
+import java.io.IOException
 import zio.*
 
 case class Pet(name: String, age: Int)
 object Pet:
   case class ChangeName(name: String) extends AppAction
   case class ChangeAge(age: Int)      extends AppAction
-  def handler[M](pet: Lens[M, Pet]) =
+  def handler[M, E](pet: Lens[M, Pet]) =
     val ageHandler = handle(pet(_.age)):
       case ChangeAge(age) => updated(age)
     val nameHandler = handle(pet(_.name)):
@@ -24,17 +25,17 @@ object Model:
     case Increment extends Action
     case Decrement extends Action
 
-  val counterHandler =
+  def counterHandler[E] =
     handle(model(_.counter)):
       case Action.Increment => update(_ + 1)
       case Action.Decrement => update(_ - 1)
 
-  val logger = handle[Model]:
+  def logger = handle[Model, IOException]:
     // log the current model state for every action
     case _ => m => Console.printLine(s"Foo: $m").as(ActionResult.terminal(m))
 
-  val handler =
-    (counterHandler >> Pet.handler(model(_.pet))) ++
+  def handler =
+    (counterHandler[IOException] >> Pet.handler[Model, IOException](model(_.pet))) ++
       logger
 end Model
 

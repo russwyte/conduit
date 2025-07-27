@@ -1,6 +1,6 @@
 import xerial.sbt.Sonatype.sonatypeCentralHost
 usePgpKeyHex("2F64727A87F1BCF42FD307DD8582C4F16659A7D6")
-val scala3Version = "3.6.3"
+val scala3Version = "3.7.1"
 scalaVersion := scala3Version
 
 ThisBuild / publishMavenStyle.withRank(KeyRanks.Invisible)    := true
@@ -27,7 +27,7 @@ ThisBuild / developers := List(
     url = url("https://github.com/russwyte"),
   )
 )
-val zioVersion = "2.1.16"
+val zioVersion = "2.1.20"
 val timeWrappers = Seq(
   "io.github.cquiroz" %% "scala-java-time"      % "2.6.0",
   "io.github.cquiroz" %% "scala-java-time-tzdb" % "2.6.0",

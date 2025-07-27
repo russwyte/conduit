@@ -3,7 +3,7 @@ package conduit
 import zio.*
 import zio.stream.ZStream
 
-abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
+abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, E]]):
   self =>
   import Conduit.get
 
@@ -14,22 +14,23 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
       get(self.zoom(lens))
     inline def zoomTo[U](inline path: M => U): U =
       get(self.zoomTo(path))
-    inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, S] =
-      get(self.subscribe(path)(f))
-    def subscribe[S](lens: Lens[M, S])(f: S => Unit): Listener[M, S] =
-      get(self.subscribe(lens)(f))
-    def unsubscribe[S](listener: Listener[M, S]): Unit =
+    inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, S, E] =
+      get(self.subscribe(path)(s => ZIO.succeed(f(s))))
+    def subscribe[S](lens: Lens[M, S])(f: S => Unit): Listener[M, S, E] =
+      get(self.subscribe(lens)(s => ZIO.succeed(f(s))))
+    def unsubscribe[S](listener: Listener[M, S, E]): Unit =
       get(self.unsubscribe(listener))
     def run(terminate: Boolean = true): Unit =
-      get(self.run(terminate).orDie)
+      try get(self.run(terminate).catchAll(e => ZIO.die(RuntimeException(s"Conduit error: $e"))))
+      catch case t: Throwable => throw t
     def currentModel: M =
       get(self.currentModel)
   end unsafe
 
   def initialModel: M
 
-  protected def handler: ActionHandler[M, ?]
-  val runUntilDone: ZIO[Any, Throwable, Unit] = run(false)
+  protected def handler: ActionHandler[M, ?, E]
+  val runUntilDone: IO[E, Unit] = run(false)
 
   /** Run the forever or until [[Done]].
     *
@@ -37,7 +38,7 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
     *   if true, will offer [[Done]] to the action queue so that the stream will terminate.
     * @return
     */
-  def run(terminate: Boolean = true): ZIO[Any, Throwable, Unit] =
+  def run(terminate: Boolean = true): IO[E, Unit] =
     for
       state <- stateRef.get
       _ <-
@@ -54,7 +55,7 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
     * @param action
     * @return
     */
-  def dispatch(action: AppAction): ZIO[Any, Throwable, AppAction] =
+  def dispatch(action: AppAction): IO[E, AppAction] =
     action match
       case NoAction => ZIO.succeed(NoAction)
       case Done     => ZIO.succeed(Done)
@@ -65,15 +66,15 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
           result    <- handler.process(action, currentModel)
           _         <- stateRef.update(_.copy(model = result.newModel))
           nextState <- stateRef.get
-          _         <- ZIO.foreachDiscard(nextState.listeners)(_.notify(currentModel, nextState.model))
+          _         <- ZIO.foreachDiscard(nextState.listeners)(_.notify(nextState.model))
           _         <- ZIO.foreachDiscard(result.next)(dispatch)
         yield action
 
-  def zoom[U](lens: Lens[M, U]): ZIO[Any, Nothing, U] =
+  def zoom[U](lens: Lens[M, U]): IO[Nothing, U] =
     for m <- currentModel
     yield lens.get(m)
 
-  inline def zoomTo[U](inline path: M => U): ZIO[Any, Nothing, U] =
+  inline def zoomTo[U](inline path: M => U): IO[Nothing, U] =
     zoom(lensFor(path))
 
   /** Enqueue an action to be processed by the conduit.
@@ -81,33 +82,33 @@ abstract class Conduit[M] private (private val stateRef: Ref[ConduitState[M]]):
     * @param action
     * @return
     */
-  def apply(action: AppAction*): UIO[Unit] =
+  def apply(action: AppAction*): IO[Nothing, Unit] =
     for
       state <- stateRef.get
       _ <- ZIO.foreachDiscard(action):
         state.actionQueue.offer
     yield ()
 
-  inline def subscribe[S](inline path: M => S)(inline listener: S => Unit): ZIO[Any, Nothing, Listener[M, S]] =
-    val l = Listener[M, S](lensFor(path), listener)
+  inline def subscribe[S](inline path: M => S)(inline listener: S => IO[E, Unit]): UIO[Listener[M, S, E]] =
+    val l = Listener[M, S, E](lensFor(path), listener)
     stateRef
       .update: current =>
         current.copy(listeners = current.listeners + l)
       .as(l)
 
-  def subscribe[S](lens: Lens[M, S])(listener: S => Unit): UIO[Listener[M, S]] =
-    val l = Listener[M, S](lens, listener)
+  def subscribe[S](lens: Lens[M, S])(listener: S => IO[E, Unit]): UIO[Listener[M, S, E]] =
+    val l = Listener[M, S, E](lens, listener)
     stateRef
       .update: current =>
         current.copy(listeners = current.listeners + l)
       .as(l)
 
-  def unsubscribe[S](listener: Listener[M, S]): UIO[Unit] =
+  def unsubscribe[S](listener: Listener[M, S, E]): UIO[Unit] =
     stateRef
       .update: current =>
         current.copy(listeners = current.listeners - listener)
 
-  def currentModel: UIO[M] = stateRef.get.map(_.model)
+  def currentModel: IO[Nothing, M] = stateRef.get.map(_.model)
 
 end Conduit
 
@@ -115,19 +116,19 @@ object Conduit:
   def get[A](zio: UIO[A]): A = Unsafe.unsafe: u =>
     given Unsafe = u
     Runtime.default.unsafe.run(zio).getOrThrow()
-  def make[M](
+  def make[M, E](
       init: M
-  )(h: => ActionHandler[M, ?]): Conduit[M] =
+  )(h: => ActionHandler[M, ?, E]): Conduit[M, E] =
     get(apply(init)(h))
 
-  def apply[M](
+  def apply[M, E](
       init: M
-  )(h: => ActionHandler[M, ?]): ZIO[Any, Nothing, Conduit[M]] =
+  )(h: => ActionHandler[M, ?, E]): IO[Nothing, Conduit[M, E]] =
     for
       queue <- Queue.unbounded[AppAction]
-      ref   <- Ref.make(ConduitState(init, Set.empty, queue))
-    yield new Conduit[M](ref):
+      ref   <- Ref.make(ConduitState[M, E](init, Set.empty, queue))
+    yield new Conduit[M, E](ref):
       override def initialModel: M = init
-      override protected def handler: ActionHandler[M, ?] =
+      override protected def handler: ActionHandler[M, ?, E] =
         h
 end Conduit
