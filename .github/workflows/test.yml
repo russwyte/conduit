@@ -9,9 +9,11 @@ permissions:
   contents: read
 
 env:
-  # Bump thread stack to dodge StackOverflow in the Scala.js
-  # PrepJSInterop tree traversal on deeply-nested code.
-  JAVA_OPTS: -Xss256m -Dfile.encoding=UTF-8
+  # Per sbt/setup-sbt's recommended config (https://github.com/sbt/setup-sbt).
+  # The larger heap + code cache + UTF-8 default + 6M stack work together;
+  # bumping just -Xss in isolation didn't help with the Scala.js
+  # PrepJSInterop StackOverflow we were hitting.
+  JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
 
 jobs:
   test:
