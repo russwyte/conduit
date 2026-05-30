@@ -1,20 +1,14 @@
-import xerial.sbt.Sonatype.sonatypeCentralHost
-usePgpKeyHex("2F64727A87F1BCF42FD307DD8582C4F16659A7D6")
-val scala3Version = "3.7.1"
-ThisBuild / scalaVersion                            := scala3Version
-ThisBuild / dependencyOverrides += "org.scala-lang" %% "scala3-library" % scalaVersion.value
+val scala3Version = "3.8.3"
+val zioVersion    = "2.1.26"
 
-ThisBuild / publishMavenStyle.withRank(KeyRanks.Invisible)    := true
-ThisBuild / pomIncludeRepository.withRank(KeyRanks.Invisible) := { _ => false }
-ThisBuild / sonatypeCredentialHost                            := sonatypeCentralHost
-ThisBuild / publishTo                                         := sonatypePublishToBundle.value
-ThisBuild / licenses             := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
-ThisBuild / homepage             := Some(url("https://github.com/russwyte/conduit"))
+// Global settings using ThisBuild scope
+ThisBuild / scalaVersion         := scala3Version
 ThisBuild / organization         := "io.github.russwyte"
 ThisBuild / organizationName     := "russwyte"
 ThisBuild / organizationHomepage := Some(url("https://github.com/russwyte"))
-ThisBuild / versionScheme        := Some("early-semver")
-ThisBuild / scmInfo := Some(
+ThisBuild / licenses             := List("Apache-2.0" -> url("http://www.apache.org/licenses/LICENSE-2.0.txt"))
+ThisBuild / homepage             := Some(url("https://github.com/russwyte/conduit"))
+ThisBuild / scmInfo              := Some(
   ScmInfo(
     url("https://github.com/russwyte/conduit"),
     "scm:git@github.com:russwyte/conduit.git",
@@ -28,31 +22,48 @@ ThisBuild / developers := List(
     url = url("https://github.com/russwyte"),
   )
 )
-val zioVersion = "2.1.26"
+ThisBuild / versionScheme                           := Some("early-semver")
+ThisBuild / dependencyOverrides += "org.scala-lang" %% "scala3-library" % scalaVersion.value
+
+usePgpKeyHex("2F64727A87F1BCF42FD307DD8582C4F16659A7D6")
+
+lazy val commonSettings = Seq(
+  scalacOptions ++= Seq(
+    "-deprecation",
+    "-Wunused:all",
+    "-feature",
+  ),
+)
+
+// Native sbt 1.11+ Maven Central publishing — no sbt-sonatype plugin required.
+lazy val publishSettings = Seq(
+  publishMavenStyle    := true,
+  pomIncludeRepository := { _ => false },
+  publishTo            := localStaging.value,
+)
+
 val timeWrappers = Seq(
   "io.github.cquiroz" %% "scala-java-time"      % "2.6.0",
   "io.github.cquiroz" %% "scala-java-time-tzdb" % "2.6.0",
 )
 val scalaVersions = Seq(scala3Version)
 
-test / skip := true
-
+// Root project aggregates all modules but is not published
 lazy val root = (project in file("."))
   .aggregate(core.projectRefs ++ example.projectRefs: _*)
   .settings(
+    name           := "conduit-root",
     publish / skip := true,
     test / skip    := true,
   )
 
+// Core library - the main publishable artifact
 lazy val core = (projectMatrix in file("core"))
+  .settings(commonSettings)
+  .settings(publishSettings)
   .settings(
     name        := "conduit",
     description := "A ZIO-based library for building event-driven systems",
-    scalacOptions ++= Seq(
-      "-deprecation",
-      "-Wunused:all",
-      "-feature",
-    ),
     libraryDependencies ++= Seq(
       "dev.zio" %%% "zio"          % zioVersion,
       "dev.zio" %%% "zio-streams"  % zioVersion,
@@ -75,17 +86,14 @@ lazy val core = (projectMatrix in file("core"))
     ),
   )
 
+// Example apps - not published
 lazy val example = (projectMatrix in file("example"))
   .dependsOn(core)
+  .settings(commonSettings)
   .settings(
     name           := "conduit-example",
     publish / skip := true,
     test / skip    := true,
-    scalacOptions ++= Seq(
-      "-deprecation",
-      "-Wunused:all",
-      "-feature",
-    ),
   )
   .jvmPlatform(scalaVersions = scalaVersions)
   .jsPlatform(scalaVersions = scalaVersions)
