@@ -11,7 +11,7 @@ permissions:
 env:
   # Bump thread stack to dodge StackOverflow in the Scala.js
   # PrepJSInterop tree traversal on deeply-nested code.
-  JAVA_OPTS: -Xss8m -Dfile.encoding=UTF-8
+  JAVA_OPTS: -Xss256m -Dfile.encoding=UTF-8
 
 jobs:
   test:
