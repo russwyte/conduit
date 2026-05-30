@@ -1,17 +1,18 @@
 package example
+import java.io.IOException
+
 import conduit.*
 
-import java.io.IOException
 import zio.*
 
 case class Pet(name: String, age: Int)
 object Pet:
-  case class ChangeName(name: String) extends AppAction
-  case class ChangeAge(age: Int)      extends AppAction
-  def handler[M, E](pet: Lens[M, Pet]) =
-    val ageHandler = handle(pet(_.age)):
+  case class ChangeName(name: String) extends Action
+  case class ChangeAge(age: Int)      extends Action
+  def handler[M, E](pet: Lens[M, Pet]): ActionHandler[M, ?, E] =
+    val ageHandler = handle[M, Int, E](pet(_.age)):
       case ChangeAge(age) => updated(age)
-    val nameHandler = handle(pet(_.name)):
+    val nameHandler = handle[M, String, E](pet(_.name)):
       case ChangeName(name) => updated(name)
     ageHandler >> nameHandler // Combine the two handlers using orElse
 end Pet
@@ -27,9 +28,9 @@ case class InvalidName(name: String) extends ValidationError
 case class User(name: String, age: Int, email: String) derives Optics
 
 object User:
-  case class UpdateName(name: String)   extends AppAction
-  case class UpdateAge(age: Int)        extends AppAction
-  case class UpdateEmail(email: String) extends AppAction
+  case class UpdateName(name: String)   extends Action
+  case class UpdateAge(age: Int)        extends Action
+  case class UpdateEmail(email: String) extends Action
 
   val model = Optics[User]
 
@@ -37,11 +38,11 @@ object User:
   def validatingHandler: ActionHandler[User, ?, ValidationError] =
     val nameHandler = handle[User, String, ValidationError](model(_.name)):
       case UpdateName(name) if name.trim.nonEmpty => updated(name.trim)
-      case UpdateName(name)                       => m => ZIO.fail(InvalidName(name))
+      case UpdateName(name)                       => _ => ZIO.fail(InvalidName(name))
 
     val ageHandler = handle[User, Int, ValidationError](model(_.age)):
       case UpdateAge(age) if age >= 0 && age <= 150 => updated(age)
-      case UpdateAge(age)                           => m => ZIO.fail(InvalidAge(age))
+      case UpdateAge(age)                           => _ => ZIO.fail(InvalidAge(age))
 
     val emailHandler = handle[User, String, ValidationError](model(_.email)):
       case UpdateEmail(email) => updated(email)
@@ -67,22 +68,21 @@ end User
 object Model:
   val model = Optics[Model]
 
-  enum Action extends AppAction:
-    case Increment extends Action
-    case Decrement extends Action
+  enum Action extends conduit.Action:
+    case Increment, Decrement
 
-  def counterHandler[E] =
-    handle(model(_.counter)):
+  def counterHandler[E]: ActionHandler[Model, Int, E] =
+    handle[Model, Int, E](model(_.counter)):
       case Action.Increment => update(_ + 1)
       case Action.Decrement => update(_ - 1)
 
-  def logger = handle[Model, IOException]:
+  def logger: ActionHandler[Model, Model, IOException] = handle[Model, IOException]:
     // log the current model state for every action
     case _ =>
       effectOnly: m =>
         Console.printLine(s"Foo: $m")
 
-  def handler =
+  def handler: ActionHandler[Model, ?, IOException] =
     (counterHandler[IOException] >> Pet.handler[Model, IOException](model(_.pet))) ++
       logger
 end Model

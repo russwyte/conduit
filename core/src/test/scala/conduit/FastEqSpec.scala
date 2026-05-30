@@ -98,33 +98,26 @@ object FastEqSpec extends ZIOSpecDefault:
         },
         test("FastEq.withReferenceEquality should try reference equality first") {
           case class TestModel(value: Int)
-          var fallbackCallCount = 0
-
+          val counter = java.util.concurrent.atomic.AtomicInteger(0)
           val slowEq = FastEq.instance[TestModel] { (lhs, rhs) =>
-            fallbackCallCount += 1
+            counter.incrementAndGet()
             lhs.value == rhs.value
           }
-          val refEq = FastEq.withReferenceEquality(slowEq)
-
+          val refEq  = FastEq.withReferenceEquality(slowEq)
           val model1 = TestModel(42)
           val model2 = model1        // Same reference
           val model3 = TestModel(42) // Different reference, same value
 
-          for
-            // Reset counter
-            _ <- ZIO.succeed { fallbackCallCount = 0 }
+          val result1       = refEq.eqv(model1, model2)
+          val callsAfterRef = counter.get
 
-            // Test reference equality - should not call fallback
-            result1 <- ZIO.succeed(refEq.eqv(model1, model2))
-            callsAfterRef = fallbackCallCount
+          val result2            = refEq.eqv(model1, model3)
+          val callsAfterFallback = counter.get
 
-            // Test different references - should call fallback
-            result2 <- ZIO.succeed(refEq.eqv(model1, model3))
-            callsAfterFallback = fallbackCallCount
-          yield assertTrue(result1) &&
-            assertTrue(result2) &&
-            assertTrue(callsAfterRef == 0) &&   // Reference equality didn't call fallback
-            assertTrue(callsAfterFallback == 1) // Different references called fallback once
+          assertTrue(result1) &&
+          assertTrue(result2) &&
+          assertTrue(callsAfterRef == 0) &&
+          assertTrue(callsAfterFallback == 1)
         },
       ),
       suite("Collection Support")(
@@ -136,6 +129,19 @@ object FastEqSpec extends ZIOSpecDefault:
           assertTrue(!fastEq.eqv(Some("test"), Some("other"))) && // Different Some
           assertTrue(fastEq.eqv(None, None)) &&                   // Both None
           assertTrue(!fastEq.eqv(Some("test"), None))             // Some vs None
+        },
+        test("Map uses eqK consistently when keys are coarser than ==") {
+          // Regression: previously used `rhs.get(k)` which falls back to `==` on keys, ignoring eqK.
+          case class K(id: Int, label: String)
+          // eqK considers keys equal when their `id` matches; `label` is ignored.
+          given FastEq[K]   = FastEq.instance((a, b) => a.id == b.id)
+          given FastEq[Int] = FastEq.fromEquals[Int]
+
+          val mapEq = FastEq.get[Map[K, Int]]
+          val a     = Map(K(1, "x") -> 10, K(2, "y") -> 20)
+          val b     = Map(K(1, "X") -> 10, K(2, "Y") -> 20) // same ids, different labels — eqK-equal but != by ==
+          val c     = Map(K(1, "x") -> 10, K(2, "y") -> 99) // same keys, different value
+          assertTrue(mapEq.eqv(a, b)) && assertTrue(!mapEq.eqv(a, c))
         },
         test("should work with List types") {
           given FastEq[Int] = FastEq.fromEquals[Int]

@@ -1,25 +1,38 @@
+name: Scala CI
+
 on:
   pull_request:
-
+  push:
+    branches: [main]
 
 permissions:
   contents: read
 
+env:
+  # Per sbt/setup-sbt's recommended config (https://github.com/sbt/setup-sbt).
+  # The larger heap + code cache + UTF-8 default + 6M stack work together;
+  # bumping just -Xss in isolation didn't help with the Scala.js
+  # PrepJSInterop StackOverflow we were hitting.
+  JAVA_OPTS: -Xms2048M -Xmx2048M -Xss6M -XX:ReservedCodeCacheSize=256M -Dfile.encoding=UTF-8
+
 jobs:
   test:
-    name: "Run All Tests"
+    name: Run All Tests
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
-      with:
-        fetch-depth: 0
-    - name: Set up a JDK for SBT
-      uses: actions/setup-java@v4
-      with:
-        java-version: '23'
-        distribution: 'temurin'
-        cache: 'sbt'
-    - uses: sbt/setup-sbt@v1
-    - name: Run tests
-      run: sbt test
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up JDK
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'sbt'
+
+      - uses: sbt/setup-sbt@v1
+
+      - name: Run tests
+        run: sbt -v "scalafmtCheckAll; test"

@@ -7,7 +7,7 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
 
   case class TestModel(value: Int) derives Optics
 
-  enum TestAction extends AppAction:
+  enum TestAction extends Action:
     case Increment
     case NoOp
     case SetValue(v: Int)
@@ -19,7 +19,7 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
       a.value == b.value
     }
 
-  enum MetadataAction extends AppAction:
+  enum MetadataAction extends Action:
     case UpdateMetadata(meta: String)
     case UpdateValue(v: Int)
 
@@ -38,8 +38,7 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
           conduit           <- Conduit(TestModel(0))(testHandler)
 
           // Subscribe to changes
-          _ <- conduit.subscribe(_.value) { x =>
-            println(s"called: $x")
+          _ <- conduit.subscribe(_.value) { _ =>
             listenerCallCount.update(_ + 1)
           }
 
@@ -113,5 +112,5 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
           assertTrue(result3) &&     // Identical = equal
           assertTrue(result4)        // Reflexive = equal
       },
-    ) @@ TestAspect.withLiveClock
+    )
 end ConduitOptimizationSpec

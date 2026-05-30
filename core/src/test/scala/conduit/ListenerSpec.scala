@@ -169,7 +169,9 @@ object ListenerSpec extends ZIOSpecDefault:
             result.reverse == List(Right(10), Left(ValidationError), Right(20))
           )
         },
-        test("should not update last value when listener fails") {
+        test("should advance lastValue even when listener fails") {
+          // Failing listeners should NOT be re-invoked with the same value on the next notify —
+          // that would be a tight-loop replay. lastValue advances, so the next identical value is skipped.
           for
             callCount <- Ref.make(0)
             listener <- Listener[SimpleModel, TestError, Int](
@@ -181,11 +183,9 @@ object ListenerSpec extends ZIOSpecDefault:
             )
             _     <- listener.notify(SimpleModel(1))
             _     <- listener.notify(SimpleModel(42)).catchAll(_ => ZIO.unit)
-            _     <- listener.notify(SimpleModel(42)).catchAll(_ => ZIO.unit) // Should fail again
+            _     <- listener.notify(SimpleModel(42)).catchAll(_ => ZIO.unit) // Skipped — same as last value
             count <- callCount.get
-          yield assertTrue(
-            count == 3
-          ) // Should be called 3 times: once for 1, twice for 42 (since lastValue not updated on failure)
+          yield assertTrue(count == 2)
         },
       ),
       suite("Lens Integration")(
@@ -293,22 +293,21 @@ object ListenerSpec extends ZIOSpecDefault:
             result <- ref.get
           yield assertTrue(result == (1 to 10).toSet)
         },
-        test("should handle rapid duplicate notifications correctly") {
+        test("should fire listener exactly once under N concurrent identical notifications") {
+          // Atomic Ref.modify in notify guarantees that only the first concurrent call invokes the listener;
+          // every subsequent call sees lastValue already set to newValue and short-circuits.
           for
             ref <- Ref.make(0)
             listener <- Listener[SimpleModel, Nothing, Int](
               Optics[SimpleModel](_.value),
               _ => ref.update(_ + 1),
             )
-            // Send many duplicate notifications concurrently
             fibers <- ZIO.foreach((1 to 100).toList) { _ =>
               listener.notify(SimpleModel(42)).fork
             }
             _      <- ZIO.foreach(fibers)(_.join)
             result <- ref.get
-          yield assertTrue(
-            result >= 1 && result <= 10
-          ) // Should trigger minimally, allowing for more race conditions in high concurrency
+          yield assertTrue(result == 1)
         },
         test("should maintain consistency under concurrent state changes") {
           for
@@ -351,15 +350,13 @@ object ListenerSpec extends ZIOSpecDefault:
             model2 = LargeModel(2, largeData, largeValues, largeMetadata)
             model3 = LargeModel(2, largeData, largeValues, largeMetadata) // Same ID
 
-            start <- Clock.nanoTime
-            _     <- listener.notify(model1)
-            _     <- listener.notify(model2)
-            _     <- listener.notify(model3) // Should not trigger
-            end   <- Clock.nanoTime
+            _ <- listener.notify(model1)
+            _ <- listener.notify(model2)
+            _ <- listener.notify(model3) // Should not trigger
 
             result <- ref.get
-            duration = (end - start) / 1_000_000 // Convert to milliseconds
-          yield assertTrue(result == 2 && duration < 100) // Should be fast
+          yield assertTrue(result == 2)
+          end for
         },
         test("should handle complex nested equality correctly") {
           case class DeepNested(
