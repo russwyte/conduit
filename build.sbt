@@ -28,7 +28,7 @@ ThisBuild / developers := List(
     url = url("https://github.com/russwyte"),
   )
 )
-val zioVersion = "2.1.20"
+val zioVersion = "2.1.26"
 val timeWrappers = Seq(
   "io.github.cquiroz" %% "scala-java-time"      % "2.6.0",
   "io.github.cquiroz" %% "scala-java-time-tzdb" % "2.6.0",
@@ -81,6 +81,11 @@ lazy val example = (projectMatrix in file("example"))
     name           := "conduit-example",
     publish / skip := true,
     test / skip    := true,
+    scalacOptions ++= Seq(
+      "-deprecation",
+      "-Wunused:all",
+      "-feature",
+    ),
   )
   .jvmPlatform(scalaVersions = scalaVersions)
   .jsPlatform(scalaVersions = scalaVersions)

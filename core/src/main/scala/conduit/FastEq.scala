@@ -110,18 +110,23 @@ object FastEq:
       else lhs.zip(rhs).forall((a, b) => FastEq[A].eqv(a, b))
     }
 
+  /** FastEq for Map.
+    *
+    * Uses `eqK` consistently for key matching (rather than mixing it with the underlying Map's `==` lookup, which would
+    * give wrong answers when `eqK` is coarser than `==`). O(n²) worst case when keys are not `==`-equal.
+    */
   given [K, V](using eqK: FastEq[K], eqV: FastEq[V]): FastEq[Map[K, V]] =
     instance { (lhs, rhs) =>
-      // Fast size check first
       if lhs.size != rhs.size then false
       else
         lhs.forall { (k, v) =>
-          rhs.keys.exists(k2 => eqK.eqv(k, k2)) &&
-          rhs.get(k).exists(v2 => eqV.eqv(v, v2))
+          rhs.exists((k2, v2) => eqK.eqv(k, k2) && eqV.eqv(v, v2))
         }
     }
 
-  /** Derive FastEq for case classes using standard equality (can be overridden) */
+  /** `derives FastEq` defaults to standard `==` equality. Provide an explicit `given FastEq[A]` (e.g. via
+    * [[fromVersion]], [[fromHash]], [[withReferenceEquality]], or [[instance]]) to opt into a faster strategy.
+    */
   inline def derived[A]: FastEq[A] = fromEquals[A]
 
   // Extension methods for convenient usage

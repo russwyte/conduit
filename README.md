@@ -92,13 +92,26 @@ case class Todo(id: String, text: String, completed: Boolean) derives Optics
 ### 2. Create Actions
 
 ```scala
-enum AppAction extends conduit.AppAction:
+// `Action` is an alias for AppAction[Any, Nothing] — the parameter-free case.
+enum AppAction extends Action:
   case Increment
   case Decrement
   case UpdateUser(name: String, email: String)
   case AddTodo(text: String)
   case ToggleTodo(id: String)
 ```
+
+For handlers that fail with a typed error, use `ActionE[E]` (an alias for `AppAction[Any, E]`):
+
+```scala
+sealed trait AppErr
+case class InvalidEmail(addr: String) extends AppErr
+
+enum UserAction extends ActionE[AppErr]:
+  case UpdateEmail(addr: String)
+```
+
+Or use the full `AppAction[M, E]` form when you want both model and error in scope.
 
 ### 3. Build Action Handlers
 
@@ -274,6 +287,26 @@ val validatingHandler: ActionHandler[AppState, ?, ValidationError] =
       m => ZIO.succeed(ActionResult(User(name, email)))
     case UpdateUser(_, email) =>
       m => ZIO.fail(InvalidEmail(email))
+```
+
+### Dynamic Subscriptions via ConduitOps
+
+In addition to `AppAction` (your domain language), Conduit has a small set of `ConduitOp` values for control-plane
+operations on the conduit itself: `Subscribe`, `Unsubscribe`, `NoAction`, and `Done`. Both are `Dispatchable`, so
+you can enqueue them through the same channel:
+
+```scala
+val listener: Listener[AppState, Nothing, List[Todo]] = ??? // built externally
+conduit(Subscribe(listener), AppAction.AddTodo("milk"))
+```
+
+A handler can also return a `Subscribe` as a follow-up action — useful when state transitions should drive
+new subscriptions:
+
+```scala
+case AppAction.LogIn(id) => m =>
+  for newListener <- Listener(appState(_.profile), updateProfile)
+  yield ActionResult(m.copy(userId = Some(id)), Subscribe(newListener))
 ```
 
 ### Composable Handlers

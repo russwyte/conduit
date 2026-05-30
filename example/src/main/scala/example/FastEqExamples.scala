@@ -1,7 +1,9 @@
 package example
 
-import conduit.*
 import java.io.IOException
+
+import conduit.*
+
 import zio.*
 
 /** Example showing how to implement FastEq for performance optimization. This demonstrates various strategies for
@@ -75,7 +77,7 @@ object FastEqExamples extends ZIOAppDefault:
     given FastEq[RefEqualityModel] = FastEq.withReferenceEquality(FastEq.derived)
 
   // Example handlers
-  enum ModelAction extends AppAction:
+  enum ModelAction extends Action:
     case UpdateLargeCollection(newItems: List[String])
     case IncrementVersion
     case UpdateHashed(newContent: String)

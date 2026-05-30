@@ -1,7 +1,9 @@
 package example
 
-import conduit.*
 import java.io.IOException
+
+import conduit.*
+
 import zio.*
 
 /** Demonstrates Conduit's dispatch optimization - listeners are only notified when the model actually changes. */
@@ -9,7 +11,7 @@ object ConduitOptimizationDemo extends ZIOAppDefault:
 
   case class CounterModel(count: Int) derives Optics
 
-  enum CounterAction extends AppAction:
+  enum CounterAction extends Action:
     case Increment
     case Decrement
     case SetValue(value: Int)

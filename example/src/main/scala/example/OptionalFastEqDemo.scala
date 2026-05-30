@@ -1,7 +1,9 @@
 package example
 
-import conduit.*
 import java.io.IOException
+
+import conduit.*
+
 import zio.*
 
 /** Demonstrates that FastEq is completely optional - no given instances needed for basic usage. */
@@ -11,7 +13,7 @@ object OptionalFastEqDemo extends ZIOAppDefault:
   case class SimpleModel(name: String, count: Int) derives Optics
 
   // Actions for the model
-  enum SimpleAction extends AppAction:
+  enum SimpleAction extends Action:
     case UpdateName(newName: String)
     case Increment
     case Decrement

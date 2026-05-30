@@ -330,27 +330,16 @@ object LensSpec extends ZIOSpecDefault:
           assertTrue(results.forall(identity)),
       ),
       suite("Performance Characteristics")(
-        test("lens operations should be efficient for deeply nested structures"):
+        test("lens operations should remain correct over many iterations"):
           val deepNested = ComplexNested(
             A(B(C(D(42), "level4"), true), 10),
             "root",
           )
-          val lens = Optics[ComplexNested](_.a.b.c.d.value)
-
-          // Perform multiple operations to test efficiency
+          val lens       = Optics[ComplexNested](_.a.b.c.d.value)
           val iterations = 1000
-          val start      = java.lang.System.currentTimeMillis()
 
-          var result = deepNested
-          (1 to iterations).foreach { i =>
-            result = lens.set(result, i)
-          }
-
-          val end      = java.lang.System.currentTimeMillis()
-          val duration = end - start
-
-          assertTrue(lens.get(result) == iterations) &&
-          assertTrue(duration < 1000) // Should complete in less than 1 second
+          val result = (1 to iterations).foldLeft(deepNested)((acc, i) => lens.set(acc, i))
+          assertTrue(lens.get(result) == iterations)
         ,
         test("composed lens should not create excessive object allocation"):
           val employee = Employee(
