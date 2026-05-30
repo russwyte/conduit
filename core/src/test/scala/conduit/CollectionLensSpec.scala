@@ -94,7 +94,7 @@ object CollectionLensSpec extends ZIOSpecDefault:
             (Optics[ListBox](_.xs).at(3), ListBox(xs)),  // == size
             (Optics[ListBox](_.xs).at(99), ListBox(xs)), // past
             (Optics[ListBox](_.xs).at(-1), ListBox(xs)), // negative
-            (Optics[ListBox](_.xs).at(0), ListBox(Nil)),  // empty
+            (Optics[ListBox](_.xs).at(0), ListBox(Nil)), // empty
           )
           assertTrue(cases.forall((lens, m) => lens.set(m, lens.get(m)) == m))
         ,
@@ -234,8 +234,8 @@ object CollectionLensSpec extends ZIOSpecDefault:
           val genKey = Gen.alphaNumericStringBounded(1, 4)
           val genV   = Gen.int(0, 100)
           check(genMap, genKey, genV) { (m, k, v) =>
-            val lens = Optics[MapBox](_.m).key(k)
-            val box  = MapBox(m)
+            val lens   = Optics[MapBox](_.m).key(k)
+            val box    = MapBox(m)
             val getSet = lens.set(box, lens.get(box)) == box
             val setGet = lens.get(lens.set(box, Some(v))) == Some(v)
             val setSet = lens.set(lens.set(box, Some(v)), Some(v + 1)) == lens.set(box, Some(v + 1))

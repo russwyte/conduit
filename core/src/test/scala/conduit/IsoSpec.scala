@@ -38,10 +38,10 @@ object IsoSpec extends ZIOSpecDefault:
       // ─── xmap ≡ imap(Iso(...)) ──────────────────────────────────────────
       suite("xmap and imap")(
         test("xmap equals imap on the same to/from"):
-          val base                        = Optics[CountBox](_.n)
-          val viaXmap: Lens[CountBox, String]  = base.xmap(_.toString, _.toInt)
-          val viaImap: Lens[CountBox, String]  = base.imap(Iso(_.toString, _.toInt))
-          val box                              = CountBox(7)
+          val base                            = Optics[CountBox](_.n)
+          val viaXmap: Lens[CountBox, String] = base.xmap(_.toString, _.toInt)
+          val viaImap: Lens[CountBox, String] = base.imap(Iso(_.toString, _.toInt))
+          val box                             = CountBox(7)
           assertTrue(viaXmap.get(box) == viaImap.get(box))
           && assertTrue(viaXmap.set(box, "42") == viaImap.set(box, "42")),
       ),
@@ -51,10 +51,10 @@ object IsoSpec extends ZIOSpecDefault:
           val asStr = Optics[CountBox](_.n).xmap(_.toString, _.toInt)
           val cases = List(0, 1, -1, 42, Int.MaxValue, Int.MinValue)
           val laws = cases.map { n =>
-            val box       = CountBox(n)
-            val getSet    = asStr.set(box, asStr.get(box)) == box
-            val setGet    = asStr.get(asStr.set(box, "100")) == "100"
-            val setSet    = asStr.set(asStr.set(box, "7"), "100") == asStr.set(box, "100")
+            val box    = CountBox(n)
+            val getSet = asStr.set(box, asStr.get(box)) == box
+            val setGet = asStr.get(asStr.set(box, "100")) == "100"
+            val setSet = asStr.set(asStr.set(box, "7"), "100") == asStr.set(box, "100")
             getSet && setGet && setSet
           }
           assertTrue(laws.forall(identity)),

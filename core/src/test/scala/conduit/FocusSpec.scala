@@ -3,9 +3,9 @@ package conduit
 import zio.*
 import zio.test.*
 
-/** Tests for the `focus` context-function combinator: lens-law verification on the derived focus, ActionFunction
-  * wiring (update / updated / noChange / noChange-with-followup / effectOnly), nested focus, error-channel
-  * propagation, dirty-flag preservation, and composition with the existing handler combinators.
+/** Tests for the `focus` context-function combinator: lens-law verification on the derived focus, ActionFunction wiring
+  * (update / updated / noChange / noChange-with-followup / effectOnly), nested focus, error-channel propagation,
+  * dirty-flag preservation, and composition with the existing handler combinators.
   */
 object FocusSpec extends ZIOSpecDefault:
 
@@ -29,6 +29,7 @@ object FocusSpec extends ZIOSpecDefault:
     case Deep(s: String)
     case TreeLeftValue(v: Int)
     case Boom
+  end A
 
   sealed trait Err
   case object Boomed extends Err
@@ -78,8 +79,7 @@ object FocusSpec extends ZIOSpecDefault:
           assertTrue(lens.get(box) == Some(inner))
           && assertTrue(lens.set(box, None).t.left == None)
           // inner tree's `left` is None — the macro must not have walked into it
-          && assertTrue(lens.set(box, None).t.right == None)
-        ,
+          && assertTrue(lens.set(box, None).t.right == None),
       ),
       // ─── ActionFunction wiring ──────────────────────────────────────────
       suite("ActionFunction wiring")(
@@ -123,19 +123,17 @@ object FocusSpec extends ZIOSpecDefault:
         test("error: ZIO.fail in body surfaces unchanged"):
           val initial = Model(User("alice", 30, Address("NYC", "10001")), 0, Nil)
           for exit <- modelHandler[Err].process(A.Boom, initial).either
-          yield assertTrue(exit == Left(Boomed))
-        ,
+          yield assertTrue(exit == Left(Boomed)),
       ),
       // ─── nested focus ───────────────────────────────────────────────────
       suite("nested focus")(
         test("focus(_.a)(focus(_.b.c)(...)) ≡ focus(_.a.b.c)(...)"):
           val initial = Model(User("alice", 30, Address("NYC", "10001")), 0, Nil)
           for
-            r1 <- modelHandler[Err].process(A.Move("LA"), initial)     // direct deep path
-            r2 <- modelHandler[Err].process(A.Deep("LA"), initial)     // nested focus
+            r1 <- modelHandler[Err].process(A.Move("LA"), initial) // direct deep path
+            r2 <- modelHandler[Err].process(A.Deep("LA"), initial) // nested focus
           yield assertTrue(r1.newModel == r2.newModel)
             && assertTrue(r1.newModel.user.address.city == "LA")
-        ,
       ),
       // ─── composition with existing handler combinators ──────────────────
       suite("composition")(
@@ -167,24 +165,23 @@ object FocusSpec extends ZIOSpecDefault:
           val widened: ActionHandler[Model, Model, Err] = h.widen[Err]
           val initial                                   = Model(User("alice", 30, Address("NYC", "10001")), 0, Nil)
           for r <- widened.process(A.Inc, initial)
-          yield assertTrue(r.newModel.count == 1)
-        ,
+          yield assertTrue(r.newModel.count == 1),
       ),
       // ─── property-based ────────────────────────────────────────────────
       suite("property: lens laws hold for focus(_.field)")(
         test("on `count` over arbitrary models and values"):
-          val genName     = Gen.alphaNumericStringBounded(0, 8)
-          val genAge      = Gen.int(0, 120)
-          val genCity     = Gen.alphaNumericStringBounded(0, 8)
-          val genZip      = Gen.alphaNumericStringBounded(0, 8)
-          val genAddress  = (genCity <*> genZip).map((c, z) => Address(c, z))
-          val genUser     = (genName <*> genAge <*> genAddress).map((n, a, ad) => User(n, a, ad))
-          val genItems    = Gen.listOfBounded(0, 4)(Gen.int)
-          val genCount    = Gen.int
-          val genModel    = (genUser <*> genCount <*> genItems).map((u, c, is) => Model(u, c, is))
-          val genVNew     = Gen.int
-          val genVOther   = Gen.int
-          val countLens   = Optics[Model](_.count)
+          val genName    = Gen.alphaNumericStringBounded(0, 8)
+          val genAge     = Gen.int(0, 120)
+          val genCity    = Gen.alphaNumericStringBounded(0, 8)
+          val genZip     = Gen.alphaNumericStringBounded(0, 8)
+          val genAddress = (genCity <*> genZip).map((c, z) => Address(c, z))
+          val genUser    = (genName <*> genAge <*> genAddress).map((n, a, ad) => User(n, a, ad))
+          val genItems   = Gen.listOfBounded(0, 4)(Gen.int)
+          val genCount   = Gen.int
+          val genModel   = (genUser <*> genCount <*> genItems).map((u, c, is) => Model(u, c, is))
+          val genVNew    = Gen.int
+          val genVOther  = Gen.int
+          val countLens  = Optics[Model](_.count)
           check(genModel, genVNew, genVOther) { (m, vNew, vOther) =>
             lensLaws(countLens, m, vNew, vOther)
           }
