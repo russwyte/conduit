@@ -356,6 +356,7 @@ object ListenerSpec extends ZIOSpecDefault:
 
             result <- ref.get
           yield assertTrue(result == 2)
+          end for
         },
         test("should handle complex nested equality correctly") {
           case class DeepNested(

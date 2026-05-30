@@ -10,9 +10,9 @@ import zio.*
   *
   * Two patterns:
   *   1. Enqueueing `Subscribe(listener)` at the same level as a domain action — useful when external code wants the
-  *      subscription installed at a specific point in the action stream.
-  *   2. A handler returning `Subscribe` as a follow-up in [[ActionResult.next]] — useful when a state transition
-  *      should wire up a new listener as a consequence (e.g. "after login, watch the user's profile slice").
+  *      subscription installed at a specific point in the action stream. 2. A handler returning `Subscribe` as a
+  *      follow-up in [[ActionResult.next]] — useful when a state transition should wire up a new listener as a
+  *      consequence (e.g. "after login, watch the user's profile slice").
   */
 object SubscribeOpDemo extends ZIOAppDefault:
 
@@ -36,8 +36,7 @@ object SubscribeOpDemo extends ZIOAppDefault:
       handle[App, User, IOException](user):
         case AppAction.Login(name) =>
           m =>
-            for
-              countListener <- Listener[App, IOException, Int](
+            for countListener <- Listener[App, IOException, Int](
                 countLens,
                 c =>
                   observed.update(c :: _) *>
@@ -71,7 +70,7 @@ object SubscribeOpDemo extends ZIOAppDefault:
       _ <- Console.printLine("\n3. Inc AFTER login — listener fires for each change:")
       _ <- c(AppAction.Inc, AppAction.Inc, AppAction.Inc)
 
-      _ <- c.run()
+      _    <- c.run()
       seen <- observed.get
       _    <- Console.printLine(s"\nObserved count values (newest first): ${seen.mkString(", ")}")
       _    <- Console.printLine("=== Demo Complete ===")

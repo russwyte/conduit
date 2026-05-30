@@ -134,8 +134,8 @@ object FastEqSpec extends ZIOSpecDefault:
           // Regression: previously used `rhs.get(k)` which falls back to `==` on keys, ignoring eqK.
           case class K(id: Int, label: String)
           // eqK considers keys equal when their `id` matches; `label` is ignored.
-          given FastEq[K]      = FastEq.instance((a, b) => a.id == b.id)
-          given FastEq[Int]    = FastEq.fromEquals[Int]
+          given FastEq[K]   = FastEq.instance((a, b) => a.id == b.id)
+          given FastEq[Int] = FastEq.fromEquals[Int]
 
           val mapEq = FastEq.get[Map[K, Int]]
           val a     = Map(K(1, "x") -> 10, K(2, "y") -> 20)

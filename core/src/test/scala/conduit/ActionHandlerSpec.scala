@@ -3,8 +3,8 @@ package conduit
 import zio.*
 import zio.test.*
 
-/** Tests for [[ActionHandler]] and its composition combinators (`>>` / `orElse`, `++` / `fold`),
-  * plus `onUnhandled` and `widen`.
+/** Tests for [[ActionHandler]] and its composition combinators (`>>` / `orElse`, `++` / `fold`), plus `onUnhandled` and
+  * `widen`.
   */
 object ActionHandlerSpec extends ZIOSpecDefault:
 

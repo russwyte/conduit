@@ -3,8 +3,8 @@ package conduit
 import zio.*
 import zio.test.*
 
-/** End-to-end coverage of the [[Conduit]] dispatch runtime: the `apply` / `run` / `dispatch` loop, follow-up
-  * actions, [[Subscribe]] / [[Unsubscribe]] ConduitOps, listener error propagation, and the unsafe API.
+/** End-to-end coverage of the [[Conduit]] dispatch runtime: the `apply` / `run` / `dispatch` loop, follow-up actions,
+  * [[Subscribe]] / [[Unsubscribe]] ConduitOps, listener error propagation, and the unsafe API.
   */
 object ConduitSpec extends ZIOSpecDefault:
 
@@ -83,8 +83,7 @@ object ConduitSpec extends ZIOSpecDefault:
               case A.Inc => update(_ + 1)
               case A.Set(v) =>
                 m =>
-                  for
-                    listener <- Listener[S, Nothing, Int](
+                  for listener <- Listener[S, Nothing, Int](
                       Optics[S](_.value),
                       x => ZIO.succeed(seen.synchronized { seen += x; () }),
                     )
@@ -101,15 +100,15 @@ object ConduitSpec extends ZIOSpecDefault:
         },
         test("multiple Subscribe ops install independent listeners") {
           for
-            c       <- Conduit(S(0))(counterHandler[Nothing])
-            callsA  <- Ref.make(0)
-            callsB  <- Ref.make(0)
-            la      <- Listener[S, Nothing, Int](Optics[S](_.value), _ => callsA.update(_ + 1))
-            lb      <- Listener[S, Nothing, Int](Optics[S](_.value), _ => callsB.update(_ + 1))
-            _       <- c(Subscribe(la), Subscribe(lb), A.Inc, A.Inc)
-            _       <- c.run()
-            a       <- callsA.get
-            b       <- callsB.get
+            c      <- Conduit(S(0))(counterHandler[Nothing])
+            callsA <- Ref.make(0)
+            callsB <- Ref.make(0)
+            la     <- Listener[S, Nothing, Int](Optics[S](_.value), _ => callsA.update(_ + 1))
+            lb     <- Listener[S, Nothing, Int](Optics[S](_.value), _ => callsB.update(_ + 1))
+            _      <- c(Subscribe(la), Subscribe(lb), A.Inc, A.Inc)
+            _      <- c.run()
+            a      <- callsA.get
+            b      <- callsB.get
           yield assertTrue(a == 2) && assertTrue(b == 2)
         },
         test("Unsubscribe is a no-op when the listener was never subscribed") {
@@ -155,10 +154,12 @@ object ConduitSpec extends ZIOSpecDefault:
       suite("unsafe API")(
         test("round-trip: apply / subscribe / run / currentModel") {
           // unsafe API runs against Runtime.default; treat as a smoke test.
-          val c     = Conduit.make(S(0))(counterHandler[Nothing])
-          val ref   = java.util.concurrent.atomic.AtomicInteger(0)
-          val lens  = Optics[S](_.value)
-          val _     = c.unsafe.subscribe(lens)(_ => { ref.incrementAndGet(); () })
+          val c    = Conduit.make(S(0))(counterHandler[Nothing])
+          val ref  = java.util.concurrent.atomic.AtomicInteger(0)
+          val lens = Optics[S](_.value)
+          val _ = c.unsafe.subscribe(lens)(_ =>
+            ref.incrementAndGet(); ()
+          )
           c.unsafe(A.Inc, A.Inc, A.Set(7))
           c.unsafe.run()
           val model = c.unsafe.currentModel
@@ -170,7 +171,9 @@ object ConduitSpec extends ZIOSpecDefault:
           // subscribe[S](inline path: M => S). If this test compiles, the inline+macro composition works.
           val c   = Conduit.make(S(0))(counterHandler[Nothing])
           val ref = java.util.concurrent.atomic.AtomicInteger(0)
-          val _   = c.unsafe.subscribe(_.value)(_ => { ref.incrementAndGet(); () })
+          val _ = c.unsafe.subscribe(_.value)(_ =>
+            ref.incrementAndGet(); ()
+          )
           c.unsafe(A.Inc)
           c.unsafe.run()
           assertTrue(c.unsafe.currentModel == S(1))
