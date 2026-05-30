@@ -11,6 +11,23 @@ def update[M, V, E](using lens: Lens[M, V])(f: V => V): ActionFunction[M, E] = m
   ZIO.succeed(ActionResult(lens.set(m, f(lens.get(m)))))
 def updated[M, V, E](newValue: V)(using lens: Lens[M, V]): ActionFunction[M, E] = m =>
   ZIO.succeed(ActionResult(lens.set(m, newValue)))
+
+/** Re-bind the ambient `Lens[M, V]` to a sub-focus `Lens[M, W]` for `body`, deriving the inner lens via the existing
+  * `Lens.apply` macro. Lets a single `handle(lens) { ... }` block act on different sub-fields per case without
+  * splitting into multiple handlers.
+  *
+  * {{{
+  *   handle(Optics[Model]) {
+  *     case Rename(n)  => focus(_.user.name)(updated(n))
+  *     case Inc        => focus(_.count)(update(_ + 1))
+  *     case AddItem(x) => focus(_.items)(update(_ :+ x))
+  *   }
+  * }}}
+  */
+inline def focus[M, V, W, E](using outer: Lens[M, V])(inline path: V => W)(
+    body: Lens[M, W] ?=> ActionFunction[M, E]
+): ActionFunction[M, E] =
+  body(using outer(path))
 def noChange[M, E]: ActionFunction[M, E] = m => ZIO.succeed(ActionResult.clean(m))
 def noChange[M, E](next: Dispatchable[M, E]): ActionFunction[M, E] =
   m => ZIO.succeed(ActionResult.clean(m, next))
