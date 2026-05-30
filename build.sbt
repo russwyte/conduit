@@ -98,3 +98,19 @@ lazy val example = (projectMatrix in file("example"))
   .jvmPlatform(scalaVersions = scalaVersions)
   .jsPlatform(scalaVersions = scalaVersions)
   .nativePlatform(scalaVersions = scalaVersions)
+
+// Runnable docs (marklit) — JVM-only. Compiles every Scala block in docs/src/main/markdown/
+// against the JVM build of `core` and renders the executed output back into Markdown.
+lazy val docs = (project in file("docs"))
+  .dependsOn(core.jvm(scala3Version))
+  .settings(commonSettings)
+  .settings(
+    name                   := "conduit-docs",
+    scalaVersion           := scala3Version,
+    publish / skip         := true,
+    test / skip            := true,
+    marklitSourceDirectory := baseDirectory.value / "src" / "main" / "markdown",
+    // Render to <repo-root>/docs-generated/ so committed Markdown links from the
+    // README resolve on GitHub and in any plain-Markdown viewer.
+    marklitTargetDirectory := (ThisBuild / baseDirectory).value / "docs-generated",
+  )
