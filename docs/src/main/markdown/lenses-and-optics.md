@@ -6,7 +6,7 @@ A `Lens[M, V]` is a typed pair of functions: `get(m: M): V` and `set(m: M, v: V)
 
 Add `derives Optics` to a case class and you get a typeclass instance that lets the macro derive a `Lens` from a path:
 
-```scala marklit:silent,id=optics-base
+```scala marklit:top-level,id=optics-base
 import conduit.*
 
 case class Address(city: String, zip: String) derives Optics
@@ -30,10 +30,10 @@ println(countLens.set(countLens.set(initial, 1), 2).count)
 
 ## What the macro generates
 
-For `Optics[Model](_.user.address.city)`, the macro produces:
+For `Optics[Model](_.user.address.city)`, the macro produces the equivalent of this hand-written lens (type-checked against the real `Model` here, but never executed):
 
-```scala marklit:passthrough
-new Lens[Model, String]:
+```scala marklit:top-level,extends=optics-base
+val generatedCityLens: Lens[Model, String] = new Lens[Model, String]:
   def get(m: Model): String = m.user.address.city
   def set(m: Model, v: String): Model =
     m.copy(user = m.user.copy(address = m.user.address.copy(city = v)))

@@ -10,7 +10,7 @@ Inside `handle(lens) { partial-function }`, the lens becomes ambient and three h
 - `updated(v)` — set the slice to a literal value.
 - `noChange` — leave the model alone (still produces a clean `ActionResult`).
 
-```scala marklit:silent,id=handler-base
+```scala marklit:top-level,id=handler-base
 import conduit.*
 import zio.*
 
@@ -49,7 +49,7 @@ yield ()
 
 A `handle(lens) { ... }` block fixes the slice. To act on a different sub-field per case without splitting into multiple handlers, use `focus`:
 
-```scala marklit:silent,extends=handler-base,id=focused-handler,show-warnings=false
+```scala marklit:silent,extends=handler-base,id=focused-handler
 val handler: ActionHandler[State, State, Nothing] =
   handle[State, State, Nothing](Optics[State]):
     case Op.Inc           => focus(_.count)(update(_ + 1))
@@ -59,7 +59,7 @@ val handler: ActionHandler[State, State, Nothing] =
     case Op.TouchOnly     => focus(_.count)(noChange)
 ```
 
-```scala marklit:zio-app,extends=focused-handler,show-warnings=false
+```scala marklit:zio-app,extends=focused-handler
 for
   c <- Conduit(State(0, "x"))(handler)
   _ <- c(Op.Inc, Op.SetLabel("y"), Op.Inc, Op.SetLabel("z"))
@@ -71,7 +71,7 @@ yield ()
 
 `focus(path)(body)` re-binds the ambient `Lens[M, V]` to a sub-focus `Lens[M, W]` for `body`. Inside the body, `update` / `updated` use the sub-lens automatically. Paths nest:
 
-```scala marklit:silent,id=nested-focus,show-warnings=false
+```scala marklit:top-level,id=nested-focus-defs
 import conduit.*
 import zio.*
 
@@ -82,7 +82,9 @@ case class App(user: User) derives Optics
 enum AppOp extends Action:
   case MoveTo(c: String)
   case MoveDeep(c: String)
+```
 
+```scala marklit:silent,extends=nested-focus-defs,id=nested-focus
 val nested: ActionHandler[App, App, Nothing] =
   handle[App, App, Nothing](Optics[App]):
     // direct deep path
@@ -91,7 +93,7 @@ val nested: ActionHandler[App, App, Nothing] =
     case AppOp.MoveDeep(c) => focus(_.user)(focus(_.address.city)(updated(c)))
 ```
 
-```scala marklit:zio-app,extends=nested-focus,show-warnings=false
+```scala marklit:zio-app,extends=nested-focus
 for
   c <- Conduit(App(User("Alice", Address("NYC"))))(nested)
   _ <- c(AppOp.MoveTo("LA"))
@@ -158,7 +160,7 @@ Use `>>` when an action belongs to one slice and you want the first matching han
 
 A handler's error type `E` threads through `IO[E, ActionResult[M, E]]`. The handler can `ZIO.fail(typedError)` to abort dispatch.
 
-```scala marklit:silent,id=err-base,show-warnings=false
+```scala marklit:top-level,id=err-base-defs
 import conduit.*
 import zio.*
 
@@ -173,7 +175,9 @@ sealed trait Err
 sealed trait MyErr extends Err
 case object NotEven extends MyErr
 case object Unknown extends Err
+```
 
+```scala marklit:silent,extends=err-base-defs,id=err-base
 val h: ActionHandler[S, Int, MyErr] =
   handle[S, Int, MyErr](Optics[S](_.value)):
     case Op.Set(v)     => updated(v)
@@ -182,7 +186,7 @@ val h: ActionHandler[S, Int, MyErr] =
       m => if Optics[S](_.value).get(m) % 2 == 0 then noChange[S, MyErr].apply(m) else ZIO.fail(NotEven)
 ```
 
-```scala marklit:zio-app,extends=err-base,show-warnings=false
+```scala marklit:zio-app,extends=err-base
 for
   c    <- Conduit(S(5))(h)
   _    <- c(Op.AssertEven)
@@ -195,14 +199,14 @@ yield ()
 
 By default, an action no handler matches becomes a `Throwable` defect — appropriate when `E = Nothing`. Provide a typed mapping with `onUnhandled`:
 
-```scala marklit:silent,extends=err-base,id=unhandled,show-warnings=false
+```scala marklit:silent,extends=err-base,id=unhandled
 val safer = h.widen[Err].onUnhandled(_ => Unknown)
 
 enum Other extends Action:
   case Inc
 ```
 
-```scala marklit:zio-app,extends=unhandled,show-warnings=false
+```scala marklit:zio-app,extends=unhandled
 // AssertEven on an even number → handled, no error
 // Other.Inc → no case matches → Unknown
 for
@@ -219,7 +223,7 @@ yield ()
 
 A handler can enqueue more actions as part of its `ActionResult`. The dispatch loop processes them before exiting:
 
-```scala marklit:silent,id=followup-base
+```scala marklit:top-level,id=followup-base
 import conduit.*
 import zio.*
 

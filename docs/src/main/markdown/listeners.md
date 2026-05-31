@@ -6,7 +6,7 @@ A `Listener[M, E, S]` watches a slice `S` of the model and runs an effect every 
 
 `Conduit#subscribe` takes a path (or a `Lens`) and a callback `S => IO[E, Unit]`. The callback runs after every dispatch where the focused slice changed (per [FastEq](fast-equality.md)):
 
-```scala marklit:silent,id=listener-base,show-warnings=false
+```scala marklit:top-level,id=listener-base-defs
 import conduit.*
 import zio.*
 
@@ -16,7 +16,9 @@ enum Op extends Action:
   case Inc
   case Dec
   case SetLabel(s: String)
+```
 
+```scala marklit:silent,extends=listener-base-defs,id=listener-base
 val handler: ActionHandler[S, S, Nothing] =
   handle[S, S, Nothing](Optics[S]):
     case Op.Inc           => focus(_.count)(update(_ + 1))
@@ -24,7 +26,7 @@ val handler: ActionHandler[S, S, Nothing] =
     case Op.SetLabel(lbl) => focus(_.label)(updated(lbl))
 ```
 
-```scala marklit:zio-app,extends=listener-base,show-warnings=false
+```scala marklit:zio-app,extends=listener-base
 for
   c    <- Conduit(S(0, "x"))(handler)
   seen <- Ref.make(List.empty[Int])
@@ -42,7 +44,7 @@ The `SetLabel` action didn't change `_.count`, so the listener didn't fire for i
 
 Listeners can also be added via the `Subscribe` `ConduitOp`. This lets a *handler* return a follow-up that wires up a listener as part of a state transition:
 
-```scala marklit:silent,extends=listener-base,id=op-listener-base,show-warnings=false
+```scala marklit:silent,extends=listener-base,id=op-listener-base
 val followUp: ActionHandler[S, S, Nothing] =
   handle[S, S, Nothing](Optics[S]):
     case Op.Inc =>
@@ -58,7 +60,7 @@ val followUp: ActionHandler[S, S, Nothing] =
         yield ActionResult(set, if lbl == "watch" then Subscribe(listener) else NoAction)
 ```
 
-```scala marklit:zio-app,extends=op-listener-base,show-warnings=false
+```scala marklit:zio-app,extends=op-listener-base
 for
   c <- Conduit(S(0, "off"))(followUp)
   _ <- c(Op.Inc, Op.SetLabel("watch"), Op.Inc, Op.Inc)
@@ -72,7 +74,7 @@ The first `Op.Inc` fires nothing (no listener yet). After `SetLabel("watch")`, t
 
 Either via `Conduit#unsubscribe(listener)` directly:
 
-```scala marklit:zio-app,extends=listener-base,show-warnings=false
+```scala marklit:zio-app,extends=listener-base
 for
   c        <- Conduit(S(0, "x"))(handler)
   count    <- Ref.make(0)
@@ -89,7 +91,7 @@ yield ()
 
 Or via the `Unsubscribe` op:
 
-```scala marklit:zio-app,extends=listener-base,show-warnings=false
+```scala marklit:zio-app,extends=listener-base
 for
   c        <- Conduit(S(0, "x"))(handler)
   count    <- Ref.make(0)
@@ -107,7 +109,7 @@ The op form is useful when you want subscribe/unsubscribe to be part of the acti
 
 A listener whose effect fails aborts the dispatch loop. Conduit is fail-fast — it doesn't try to keep going after a listener crashes:
 
-```scala marklit:zio-app,extends=listener-base,show-warnings=false
+```scala marklit:zio-app,extends=listener-base
 sealed trait Err
 case object Boom extends Err
 
@@ -126,7 +128,7 @@ Recoverable failures should be handled *inside* the listener's effect (`.catchAl
 
 For interop with code that can't `await` a ZIO effect (UI threads, JS event loops), every `Conduit` exposes a synchronous façade at `conduit.unsafe`:
 
-```scala marklit:silent,extends=listener-base,id=unsafe,show-warnings=false
+```scala marklit:silent,extends=listener-base,id=unsafe
 val c = Conduit.make(S(0, "x"))(handler)
 
 // blocking dispatch + run
@@ -142,7 +144,7 @@ c.unsafe.run()
 c.unsafe.unsubscribe(listener)
 ```
 
-```scala marklit:zio-app,extends=unsafe,show-warnings=false
+```scala marklit:zio-app,extends=unsafe
 ZIO.unit
 ```
 

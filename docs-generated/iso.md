@@ -132,6 +132,11 @@ Conduit doesn't bundle "isos for common conversions" — they tend to be either 
 ```scala
 case class Form(value: Int) derives Optics
 
+enum Op extends Action:
+  case Edit(s: String)
+```
+
+```scala
 // Treat the int as a string in a form. Lawful only on inputs that round-trip
 // (i.e. valid integer strings); the caller is on the hook for invalid input.
 val asField: Lens[Form, String] = Optics[Form](_.value).xmap(_.toString, _.toInt)
@@ -139,9 +144,6 @@ val asField: Lens[Form, String] = Optics[Form](_.value).xmap(_.toString, _.toInt
 
 ```scala
 import zio.*
-
-enum Op extends Action:
-  case Edit(s: String)
 
 val h: ActionHandler[Form, Form, Nothing] =
   handle[Form, Form, Nothing](Optics[Form]):
@@ -169,12 +171,14 @@ This is the shape `xmap` is *for*: a lens viewing a value through a different ru
 `xmap` composes with `focus` cleanly — re-bind to a sub-focus, then re-type:
 
 ```scala
-import zio.*
-
 case class Model(count: Int, label: String) derives Optics
 
 enum Op extends Action:
   case SetCountStr(s: String)
+```
+
+```scala
+import zio.*
 
 val h: ActionHandler[Model, Model, Nothing] =
   handle[Model, Model, Nothing](Optics[Model]):

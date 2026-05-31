@@ -13,7 +13,7 @@ A Conduit app has four moving parts:
 
 Define a model. The `derives Optics` clause is what unlocks the lens DSL — see [lenses-and-optics.md](lenses-and-optics.md) for what it does.
 
-```scala marklit:silent,id=counter-base
+```scala marklit:top-level,id=counter-base
 import conduit.*
 import zio.*
 
@@ -28,7 +28,7 @@ enum CounterAction extends Action:
 
 Now the handler. `handle(lens) { partial-function }` makes `update` / `updated` operate against the lensed slice — there's no `model.copy(count = ...)` boilerplate.
 
-```scala marklit:silent,extends=counter-base,id=counter-handler,show-warnings=false
+```scala marklit:silent,extends=counter-base,id=counter-handler
 val countLens = Optics[CounterState](_.count)
 
 val countHandler: ActionHandler[CounterState, Int, Nothing] =
@@ -41,7 +41,7 @@ val countHandler: ActionHandler[CounterState, Int, Nothing] =
 
 Wire it up and dispatch:
 
-```scala marklit:zio-app,extends=counter-handler,show-warnings=false
+```scala marklit:zio-app,extends=counter-handler
 for
   c <- Conduit(CounterState(0, Nil))(countHandler)
   _ <- c(CounterAction.Inc, CounterAction.Inc, CounterAction.Set(10), CounterAction.Dec)
@@ -63,7 +63,7 @@ Right now the handler is focused on a single `Int` slice. To touch a different f
 
 **Option 1: focus per case.** Use the `focus` combinator to re-bind the ambient lens for each branch:
 
-```scala marklit:silent,extends=counter-base,id=focused-handler,show-warnings=false
+```scala marklit:silent,extends=counter-base,id=focused-handler
 val focusedHandler: ActionHandler[CounterState, CounterState, Nothing] =
   handle[CounterState, CounterState, Nothing](Optics[CounterState]):
     case CounterAction.Inc    => focus(_.count)(update(_ + 1))
@@ -74,7 +74,7 @@ val focusedHandler: ActionHandler[CounterState, CounterState, Nothing] =
 
 **Option 2: compose smaller handlers.** Each handler focuses on its own slice; combine with `>>` (orElse) or `++` (fold). See [handlers.md](handlers.md) for the difference.
 
-```scala marklit:zio-app,extends=focused-handler,show-warnings=false
+```scala marklit:zio-app,extends=focused-handler
 for
   c <- Conduit(CounterState(0, Nil))(focusedHandler)
   _ <- c(CounterAction.Inc, CounterAction.Inc, CounterAction.Set(10))
