@@ -6,7 +6,7 @@ The contract is on the caller: marklit can't check that your `to` and `from` are
 
 ## Importing
 
-```scala marklit:silent,id=iso-base
+```scala marklit:top-level,id=iso-base
 import conduit.*
 import conduit.Iso.*
 ```
@@ -109,19 +109,21 @@ This is a feature, not a bug. `Iso` is a typed contract that says "I promise the
 
 Conduit doesn't bundle "isos for common conversions" — they tend to be either trivial or lossy. But you can build them where they fit. Here's a custom iso for `Int` ↔ a non-empty digit-only string, with a domain restriction we enforce ourselves:
 
-```scala marklit:silent,extends=iso-base,id=int-or
+```scala marklit:top-level,extends=iso-base,id=int-or-defs
 case class Form(value: Int) derives Optics
 
+enum Op extends Action:
+  case Edit(s: String)
+```
+
+```scala marklit:silent,extends=int-or-defs,id=int-or
 // Treat the int as a string in a form. Lawful only on inputs that round-trip
 // (i.e. valid integer strings); the caller is on the hook for invalid input.
 val asField: Lens[Form, String] = Optics[Form](_.value).xmap(_.toString, _.toInt)
 ```
 
-```scala marklit:zio-app,extends=int-or,show-warnings=false
+```scala marklit:zio-app,extends=int-or
 import zio.*
-
-enum Op extends Action:
-  case Edit(s: String)
 
 val h: ActionHandler[Form, Form, Nothing] =
   handle[Form, Form, Nothing](Optics[Form]):
@@ -144,13 +146,15 @@ This is the shape `xmap` is *for*: a lens viewing a value through a different ru
 
 `xmap` composes with `focus` cleanly — re-bind to a sub-focus, then re-type:
 
-```scala marklit:silent,extends=iso-base,id=focus-iso,show-warnings=false
-import zio.*
-
+```scala marklit:top-level,extends=iso-base,id=focus-iso-defs
 case class Model(count: Int, label: String) derives Optics
 
 enum Op extends Action:
   case SetCountStr(s: String)
+```
+
+```scala marklit:silent,extends=focus-iso-defs,id=focus-iso
+import zio.*
 
 val h: ActionHandler[Model, Model, Nothing] =
   handle[Model, Model, Nothing](Optics[Model]):
@@ -161,7 +165,7 @@ val h: ActionHandler[Model, Model, Nothing] =
           m => ZIO.succeed(ActionResult(asStr.set(m, s)))
 ```
 
-```scala marklit:zio-app,extends=focus-iso,show-warnings=false
+```scala marklit:zio-app,extends=focus-iso
 for
   c <- Conduit(Model(0, "x"))(h)
   _ <- c(Op.SetCountStr("99"))

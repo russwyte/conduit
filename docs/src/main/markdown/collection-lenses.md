@@ -12,7 +12,7 @@ All three focus `Option[V]` so absence is first-class: `None` from `get` means "
 
 The extensions live in `conduit.CollectionLens`:
 
-```scala marklit:silent,id=cl-base
+```scala marklit:top-level,id=cl-base
 import conduit.*
 import conduit.CollectionLens.*
 import zio.*
@@ -141,7 +141,7 @@ This is the spot where Conduit's lens macro's "no method calls in paths" constra
 
 The natural use is paired with `focus` ([handlers.md](handlers.md#focus)):
 
-```scala marklit:silent,id=cl-handler,show-warnings=false
+```scala marklit:top-level,id=cl-handler-defs
 import conduit.*
 import conduit.CollectionLens.*
 import zio.*
@@ -153,7 +153,9 @@ enum Op extends Action:
   case Add(t: Todo)
   case Remove(i: Int)
   case ToggleAt(i: Int)
+```
 
+```scala marklit:silent,extends=cl-handler-defs,id=cl-handler
 val handler: ActionHandler[App, App, Nothing] =
   handle[App, App, Nothing](Optics[App]):
     case Op.Add(t) =>
@@ -168,7 +170,7 @@ val handler: ActionHandler[App, App, Nothing] =
         ZIO.succeed(ActionResult(lens.set(m, lens.get(m).map(t => t.copy(done = !t.done)))))
 ```
 
-```scala marklit:zio-app,extends=cl-handler,show-warnings=false
+```scala marklit:zio-app,extends=cl-handler
 for
   c <- Conduit(App(Nil))(handler)
   _ <- c(Op.Add(Todo("buy milk", false)), Op.Add(Todo("ship docs", false)))

@@ -36,10 +36,10 @@ Model(User(Alice,30,Address(Boston,10001)),0)
 
 ## What the macro generates
 
-For `Optics[Model](_.user.address.city)`, the macro produces:
+For `Optics[Model](_.user.address.city)`, the macro produces the equivalent of this hand-written lens (type-checked against the real `Model` here, but never executed):
 
-```
-new Lens[Model, String]:
+```scala
+val generatedCityLens: Lens[Model, String] = new Lens[Model, String]:
   def get(m: Model): String = m.user.address.city
   def set(m: Model, v: String): Model =
     m.copy(user = m.user.copy(address = m.user.address.copy(city = v)))

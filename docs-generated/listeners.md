@@ -16,7 +16,9 @@ enum Op extends Action:
   case Inc
   case Dec
   case SetLabel(s: String)
+```
 
+```scala
 val handler: ActionHandler[S, S, Nothing] =
   handle[S, S, Nothing](Optics[S]):
     case Op.Inc           => focus(_.count)(update(_ + 1))

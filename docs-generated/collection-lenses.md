@@ -184,7 +184,9 @@ enum Op extends Action:
   case Add(t: Todo)
   case Remove(i: Int)
   case ToggleAt(i: Int)
+```
 
+```scala
 val handler: ActionHandler[App, App, Nothing] =
   handle[App, App, Nothing](Optics[App]):
     case Op.Add(t) =>

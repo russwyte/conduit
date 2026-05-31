@@ -60,7 +60,7 @@ These are the actual factories on `FastEq`. Pick one, define a `given`, and Cond
 
 Lenses preserve reference equality on unchanged sibling subtrees. So if a handler runs `Optics[M](_.a).set(m, ...)`, the resulting model has a different `eq` identity, but its `_.b`, `_.c`, etc. are the *same* references they were on the input. A listener watching `_.b` can compare with `eq` first and only fall back to structural equality when references differ:
 
-```scala marklit:silent,id=ref-eq
+```scala marklit:top-level,id=ref-eq
 import conduit.*
 
 case class Sub(payload: List[String])
@@ -86,7 +86,7 @@ Note: this only short-circuits when handlers *don't* re-allocate the watched sub
 
 When a model carries an explicit version that you bump on every meaningful change:
 
-```scala marklit:silent,id=ver-eq
+```scala marklit:top-level,id=ver-eq
 import conduit.*
 
 case class Doc(version: Long, body: String)
@@ -110,7 +110,7 @@ This is the right shape when you control writes (e.g. via handlers): bump the ve
 
 When your model has an `isDirty` flag (e.g. set by an editor when the document has unsaved changes):
 
-```scala marklit:silent,id=dirty-eq
+```scala marklit:top-level,id=dirty-eq
 import conduit.*
 
 case class Doc(body: String, isDirty: Boolean)

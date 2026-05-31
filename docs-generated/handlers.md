@@ -90,7 +90,9 @@ case class App(user: User) derives Optics
 enum AppOp extends Action:
   case MoveTo(c: String)
   case MoveDeep(c: String)
+```
 
+```scala
 val nested: ActionHandler[App, App, Nothing] =
   handle[App, App, Nothing](Optics[App]):
     // direct deep path
@@ -193,7 +195,9 @@ sealed trait Err
 sealed trait MyErr extends Err
 case object NotEven extends MyErr
 case object Unknown extends Err
+```
 
+```scala
 val h: ActionHandler[S, Int, MyErr] =
   handle[S, Int, MyErr](Optics[S](_.value)):
     case Op.Set(v)     => updated(v)
@@ -212,13 +216,13 @@ yield ()
 ```
 ```
 // Scala 3.8.3
-exit: Failure(Fail(NotEven,Stack trace for thread "zio-fiber-834944977":
-	at <empty>.MarklitWrapper.run.effect.h(marklit_16330990960985753308.scala:26)
+exit: Failure(Fail(NotEven,Stack trace for thread "zio-fiber-664530011":
+	at <empty>.MarklitWrapper.run.effect.h(marklit_18194856959681434966.scala:26)
 	at conduit.Conduit.dispatch(Conduit.scala:88)
 	at conduit.Conduit.run.loop(Conduit.scala:47)
-	at <empty>.MarklitWrapper.run.effect(marklit_16330990960985753308.scala:32)
-	at <empty>.MarklitWrapper.run.effect(marklit_16330990960985753308.scala:34)
-	at <empty>.MarklitWrapper.run(marklit_16330990960985753308.scala:42)))
+	at <empty>.MarklitWrapper.run.effect(marklit_18194856959681434966.scala:32)
+	at <empty>.MarklitWrapper.run.effect(marklit_18194856959681434966.scala:34)
+	at <empty>.MarklitWrapper.run(marklit_18194856959681434966.scala:42)))
 ```
 
 ### Unhandled actions
