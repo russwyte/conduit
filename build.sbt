@@ -27,6 +27,11 @@ ThisBuild / dependencyOverrides += "org.scala-lang" %% "scala3-library" % scalaV
 
 usePgpKeyHex("2F64727A87F1BCF42FD307DD8582C4F16659A7D6")
 
+// sbt 2.x defaults eviction to a strict scheme. Native toolchain forces test-interface 0.5.12,
+// while zio-test-sbt's Native build still pins 0.5.10 — both 0.5.x and binary-compatible.
+libraryDependencySchemes +=
+  "org.scala-native" % "test-interface_native0.5_3" % "early-semver"
+
 lazy val commonSettings = Seq(
   scalacOptions ++= Seq(
     "-deprecation",
@@ -50,7 +55,7 @@ val scalaVersions = Seq(scala3Version)
 
 // Root project aggregates all modules but is not published
 lazy val root = (project in file("."))
-  .aggregate(core.projectRefs ++ example.projectRefs: _*)
+  .aggregate(core.projectRefs ++ example.projectRefs*)
   .settings(
     name           := "conduit-root",
     publish / skip := true,
@@ -65,10 +70,10 @@ lazy val core = (projectMatrix in file("core"))
     name        := "conduit",
     description := "A ZIO-based library for building event-driven systems",
     libraryDependencies ++= Seq(
-      "dev.zio" %%% "zio"          % zioVersion,
-      "dev.zio" %%% "zio-streams"  % zioVersion,
-      "dev.zio" %%% "zio-test"     % zioVersion % Test,
-      "dev.zio" %%% "zio-test-sbt" % zioVersion % Test,
+      "dev.zio" %% "zio"          % zioVersion,
+      "dev.zio" %% "zio-streams"  % zioVersion,
+      "dev.zio" %% "zio-test"     % zioVersion % Test,
+      "dev.zio" %% "zio-test-sbt" % zioVersion % Test,
     ),
   )
   .jvmPlatform(scalaVersions = scalaVersions)
