@@ -20,6 +20,9 @@ object ActionHandlerSpec extends ZIOSpecDefault:
   enum CAction extends Action:
     case ResetA
 
+  enum Follow extends Action:
+    case N(i: Int)
+
   sealed trait MyErr
   case object Boom extends MyErr
 
@@ -93,6 +96,34 @@ object ActionHandlerSpec extends ZIOSpecDefault:
           val h = a2 ++ b2
           for r <- h.process(AAction.IncA, M(0, 0))
           yield assertTrue(r.newModel == M(1, 10))
+        },
+        test("update ++ clean keeps dirty so listeners can fire") {
+          val updateA = handle[M, Int, Nothing](model(_.a)):
+            case AAction.IncA => update(_ + 1)
+          val echo = handle[M, M, Nothing](model):
+            case AAction.IncA => m => ZIO.succeed(ActionResult.clean(m))
+          val h = updateA ++ echo
+          for r <- h.process(AAction.IncA, M(0, 0))
+          yield assertTrue(r.newModel == M(1, 0), r.dirty)
+        },
+        test("++ dirty is the OR of both results; next concatenates") {
+          val genFollows = Gen.listOfBounded(0, 3)(Gen.int.map(Follow.N(_)))
+          check(Gen.boolean, Gen.boolean, genFollows, genFollows, Gen.int, Gen.int) { (d1, d2, n1, n2, a, b) =>
+            def result(model: M, dirty: Boolean, next: List[Follow]): ActionResult[M, Nothing] =
+              if dirty then ActionResult(model, next*) else ActionResult.clean(model, next*)
+            val first = handle[M, Int, Nothing](model(_.a)):
+              case AAction.IncA =>
+                m => ZIO.succeed(result(model(_.a).set(m, a), d1, n1))
+            val second = handle[M, Int, Nothing](model(_.b)):
+              case AAction.IncA =>
+                m => ZIO.succeed(result(model(_.b).set(m, b), d2, n2))
+            for r <- (first ++ second).process(AAction.IncA, M(0, 0))
+            yield assertTrue(
+              r.dirty == (d1 || d2),
+              r.next == n1.toVector ++ n2.toVector,
+              r.newModel == M(a, b),
+            )
+          }
         },
         test("both miss → unhandled") {
           val h = aHandler[Nothing] ++ bHandler[Nothing]
