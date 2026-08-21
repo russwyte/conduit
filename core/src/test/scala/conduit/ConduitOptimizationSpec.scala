@@ -23,6 +23,14 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
     case UpdateMetadata(meta: String)
     case UpdateValue(v: Int)
 
+  case class Versioned(value: Int, version: Long) derives Optics
+  object Versioned:
+    given FastEq[Versioned] = FastEq.fromVersion(_.version)
+
+  enum VerOp extends Action:
+    case Bump
+    case QuietSet(v: Int)
+
   override def spec: Spec[TestEnvironment & Scope, Any] =
     suite("Conduit Dispatch Optimization")(
       test("should not notify listeners when model doesn't change") {
@@ -111,6 +119,23 @@ object ConduitOptimizationSpec extends ZIOSpecDefault:
           assertTrue(!result2) &&    // Different value = not equal
           assertTrue(result3) &&     // Identical = equal
           assertTrue(result4)        // Reflexive = equal
+      },
+      test("given FastEq.fromVersion skips listeners when only non-version fields change") {
+        val handler = handle[Versioned, Versioned, Nothing](Optics[Versioned]):
+          case VerOp.Bump        => update(m => m.copy(version = m.version + 1))
+          case VerOp.QuietSet(v) => focus(_.value)(updated(v))
+
+        for
+          c      <- Conduit(Versioned(0, 0L))(handler)
+          fired  <- Ref.make(0)
+          _      <- c.subscribe(Optics[Versioned])(_ => fired.update(_ + 1))
+          _      <- c.dispatch(VerOp.QuietSet(99))
+          nQuiet <- fired.get
+          _      <- c.dispatch(VerOp.Bump)
+          nBump  <- fired.get
+          s      <- c.currentModel
+        yield assertTrue(nQuiet == 0, nBump == 1, s.value == 99, s.version == 1L)
+        end for
       },
     )
 end ConduitOptimizationSpec

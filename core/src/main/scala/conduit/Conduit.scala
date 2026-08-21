@@ -14,10 +14,10 @@ import zio.stream.ZStream
   *   - [[ConduitOp]] — control-plane operations ([[NoAction]], [[Done]], [[Subscribe]], [[Unsubscribe]]) handled
   *     directly by the dispatch loop without touching the handler.
   */
-abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, E]]):
+abstract class Conduit[M: FastEq as eq, E] private (private val stateRef: Ref[ConduitState[M, E]]):
   self =>
 
-  val fastEq = FastEq.get[M]
+  val fastEq: FastEq[M] = eq
 
   /** Synchronous façade that runs each call against [[Runtime.default]]. Useful for UI threads or interop with code
     * that can't `await` a ZIO effect. The type is the nested [[Conduit.Unsafe]] class — NOT a path-dependent singleton
@@ -108,7 +108,7 @@ abstract class Conduit[M, E] private (private val stateRef: Ref[ConduitState[M, 
         current.copy(listeners = current.listeners + l)
     yield l
 
-  def subscribe[S](lens: Lens[M, S])(listener: S => IO[E, Unit]): IO[Nothing, Listener[M, E, S]] =
+  def subscribe[S: FastEq](lens: Lens[M, S])(listener: S => IO[E, Unit]): IO[Nothing, Listener[M, E, S]] =
     for
       l <- Listener(lens, listener)
       _ <- stateRef.update: current =>
@@ -138,7 +138,7 @@ object Conduit:
       get(c.zoom(lensFor(path)))
     inline def subscribe[S](inline path: M => S)(f: S => Unit): Listener[M, E, S] =
       get(c.subscribe(lensFor(path))((s: S) => zio.ZIO.succeed(f(s))))
-    def subscribe[S](lens: Lens[M, S])(f: S => Unit): Listener[M, E, S] =
+    def subscribe[S: FastEq](lens: Lens[M, S])(f: S => Unit): Listener[M, E, S] =
       get(c.subscribe(lens)((s: S) => zio.ZIO.succeed(f(s))))
     def unsubscribe[S](listener: Listener[M, E, S]): Unit =
       get(c.unsubscribe(listener))
@@ -148,10 +148,10 @@ object Conduit:
       get(c.currentModel)
   end Unsafe
 
-  def make[M, E](init: M)(h: => ActionHandler[M, ?, E]): Conduit[M, E] =
+  def make[M: FastEq, E](init: M)(h: => ActionHandler[M, ?, E]): Conduit[M, E] =
     get(apply(init)(h))
 
-  def apply[M, E](init: M)(h: => ActionHandler[M, ?, E]): IO[Nothing, Conduit[M, E]] =
+  def apply[M: FastEq, E](init: M)(h: => ActionHandler[M, ?, E]): IO[Nothing, Conduit[M, E]] =
     for
       queue <- Queue.unbounded[Dispatchable[M, E]]
       ref   <- Ref.make(ConduitState[M, E](init, Set.empty, queue))
