@@ -25,6 +25,8 @@ local.sbt
 .bloop/
 .metals/
 metals.sbt
+*.semanticdb
+build.sbt.semanticdb
 
 # IDEA
 .idea
@@ -33,3 +35,4 @@ metals.sbt
 
 .mcp.json
 .claude/
+.cursor/
