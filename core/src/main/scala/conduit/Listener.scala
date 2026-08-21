@@ -1,7 +1,7 @@
 package conduit
 import zio.*
 
-final case class Listener[M, E, S] private[conduit] (
+final case class Listener[M, E, S: FastEq as eq] private[conduit] (
     cursor: Lens[M, S],
     listener: S => IO[E, Unit],
     private val lastValueRef: Ref[Option[S]],
@@ -16,20 +16,19 @@ final case class Listener[M, E, S] private[conduit] (
     */
   private[conduit] def notify(newModel: M): IO[E, Unit] =
     val newValue = cursor.get(newModel)
-    val fastEq   = FastEq.get[S]
     for
       prev <- lastValueRef.modify(p => (p, Some(newValue)))
       _ <- prev match
-        case Some(a) if fastEq.eqv(a, newValue) => ZIO.unit
-        case _                                  => listener(newValue)
+        case Some(a) if eq.eqv(a, newValue) => ZIO.unit
+        case _                              => listener(newValue)
     yield ()
   end notify
 end Listener
 
 object Listener:
-  def apply[M, E, S](cursor: Lens[M, S], listener: S => IO[E, Unit]): UIO[Listener[M, E, S]] =
+  def apply[M, E, S: FastEq](cursor: Lens[M, S], listener: S => IO[E, Unit]): UIO[Listener[M, E, S]] =
     for lastValueRef <- Ref.make(Option.empty[S])
     yield new Listener(cursor, listener, lastValueRef)
 
-  def unit[M, S](cursor: Lens[M, S]): UIO[Listener[M, Nothing, S]] =
+  def unit[M, S: FastEq](cursor: Lens[M, S]): UIO[Listener[M, Nothing, S]] =
     apply(cursor, _ => ZIO.succeed(()))

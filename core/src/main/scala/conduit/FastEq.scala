@@ -34,12 +34,16 @@ trait FastEq[-A]:
   def eqv(lhs: A, rhs: A): Boolean
 end FastEq
 
-object FastEq:
-  /** Summon a FastEq instance for type A */
-  def apply[A](using eq: FastEq[A]): FastEq[A] = eq
+trait FastEqLowPriority:
+  /** Used when no more-specific `given FastEq[A]` is in scope. */
+  given fallback[A]: FastEq[A] = FastEq.fromEquals[A]
 
-  /** Get a FastEq instance for type A, falling back to standard equality if none exists */
-  def get[A](using eq: FastEq[A] = fromEquals[A]): FastEq[A] = eq
+object FastEq extends FastEqLowPriority:
+  /** Summon a FastEq instance for type A */
+  def apply[A: FastEq as eq]: FastEq[A] = eq
+
+  /** Get a FastEq instance for type A. Prefers a `given`; otherwise [[fallback]]. */
+  def get[A: FastEq as eq]: FastEq[A] = eq
 
   /** Create a FastEq instance from a function */
   def instance[A](f: (A, A) => Boolean): FastEq[A] =
@@ -89,25 +93,23 @@ object FastEq:
   given FastEq[Double]  = fromEquals[Double]
   given FastEq[Boolean] = fromEquals[Boolean]
 
-  given [A](using FastEq[A]): FastEq[Option[A]] =
+  given [A: FastEq as eq]: FastEq[Option[A]] =
     instance {
       case (None, None)       => true
-      case (Some(a), Some(b)) => FastEq[A].eqv(a, b)
+      case (Some(a), Some(b)) => eq.eqv(a, b)
       case _                  => false
     }
 
-  given [A](using FastEq[A]): FastEq[List[A]] =
+  given [A: FastEq as eq]: FastEq[List[A]] =
     instance { (lhs, rhs) =>
-      // Fast length check first
       if lhs.length != rhs.length then false
-      else lhs.zip(rhs).forall((a, b) => FastEq[A].eqv(a, b))
+      else lhs.zip(rhs).forall((a, b) => eq.eqv(a, b))
     }
 
-  given [A](using FastEq[A]): FastEq[Vector[A]] =
+  given [A: FastEq as eq]: FastEq[Vector[A]] =
     instance { (lhs, rhs) =>
-      // Fast length check first
       if lhs.length != rhs.length then false
-      else lhs.zip(rhs).forall((a, b) => FastEq[A].eqv(a, b))
+      else lhs.zip(rhs).forall((a, b) => eq.eqv(a, b))
     }
 
   /** FastEq for Map.
@@ -115,7 +117,7 @@ object FastEq:
     * Uses `eqK` consistently for key matching (rather than mixing it with the underlying Map's `==` lookup, which would
     * give wrong answers when `eqK` is coarser than `==`). O(n²) worst case when keys are not `==`-equal.
     */
-  given [K, V](using eqK: FastEq[K], eqV: FastEq[V]): FastEq[Map[K, V]] =
+  given [K: FastEq as eqK, V: FastEq as eqV]: FastEq[Map[K, V]] =
     instance { (lhs, rhs) =>
       if lhs.size != rhs.size then false
       else
@@ -130,7 +132,7 @@ object FastEq:
   inline def derived[A]: FastEq[A] = fromEquals[A]
 
   // Extension methods for convenient usage
-  extension [A](lhs: A)
-    def ===(rhs: A)(using FastEq[A]): Boolean = FastEq[A].eqv(lhs, rhs)
-    def !==(rhs: A)(using FastEq[A]): Boolean = !FastEq[A].eqv(lhs, rhs)
+  extension [A: FastEq as eq](lhs: A)
+    def ===(rhs: A): Boolean = eq.eqv(lhs, rhs)
+    def !==(rhs: A): Boolean = !eq.eqv(lhs, rhs)
 end FastEq
