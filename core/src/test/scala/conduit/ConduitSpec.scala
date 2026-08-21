@@ -53,6 +53,21 @@ object ConduitSpec extends ZIOSpecDefault:
         },
       ),
       suite("Subscribe / Unsubscribe ConduitOps")(
+        test("update ++ clean still notifies listeners") {
+          val updateValue = handle[S, Int, Nothing](Optics[S](_.value)):
+            case A.Inc => update(_ + 1)
+          val echo = handle[S, S, Nothing](Optics[S]):
+            case A.Inc => m => ZIO.succeed(ActionResult.clean(m))
+          for
+            c        <- Conduit(S(0))(updateValue ++ echo)
+            calls    <- Ref.make(0)
+            listener <- Listener[S, Nothing, Int](Optics[S](_.value), _ => calls.update(_ + 1))
+            _        <- c(Subscribe(listener), A.Inc)
+            _        <- c.run()
+            n        <- calls.get
+            m        <- c.currentModel
+          yield assertTrue(n == 1, m == S(1))
+        },
         test("Subscribe op installs a listener that fires on subsequent state changes") {
           for
             c        <- Conduit(S(0))(counterHandler[Nothing])

@@ -70,8 +70,13 @@ trait ActionHandler[M, V, E]:
     new ComposedActionHandler(this, next)
   def >>[E2 >: E](next: ActionHandler[M, ?, E2]): ActionHandler[M, ?, E2] = orElse(next)
 
+  /** Run both handlers when they match the same action. The second sees the first's model; follow-ups concatenate;
+    * dirty is OR so an update followed by a clean echo still notifies listeners.
+    */
   def fold[E2 >: E](next: ActionHandler[M, ?, E2]): ActionHandler[M, ?, E2] =
     new FoldedActionHandler(this, next)
+
+  /** Alias of [[fold]]. */
   def ++[E2 >: E](next: ActionHandler[M, ?, E2]): ActionHandler[M, ?, E2] = fold(next)
 
   private[conduit] def process(action: AppAction[M, E], m: M): IO[E, ActionResult[M, E]] =
@@ -121,6 +126,10 @@ private[conduit] class FoldedActionHandler[M, E](
               for
                 r1 <- f(model)
                 r2 <- n(r1.newModel)
-              yield r2.copy(next = r1.next ++ r2.next)
+              yield r2.copy(
+                next = r1.next ++ r2.next,
+                // copy keeps r2.dirty; OR so an update ++ clean still notifies
+                dirty = r1.dirty || r2.dirty,
+              )
           case _ => sys.error("unreachable: guarded by isDefinedAt")
 end FoldedActionHandler
